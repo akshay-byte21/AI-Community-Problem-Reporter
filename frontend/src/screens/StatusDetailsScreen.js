@@ -19,8 +19,8 @@ const StatusDetailsScreen = ({ navigation, route }) => {
   const submittedDateStr = `${formatDate(dateObj)}, ${formatTime(dateObj)}`;
   
   const reviewDate = new Date(dateObj.getTime() + 1 * 24 * 60 * 60 * 1000); // +1 day
-  const progressDate = new Date(dateObj.getTime() + 3 * 24 * 60 * 60 * 1000); // +3 days
-  const completedDate = new Date(dateObj.getTime() + 7 * 24 * 60 * 60 * 1000); // +7 days
+  const progressDate = new Date(dateObj.getTime() + 2 * 24 * 60 * 60 * 1000); // +2 days
+  const completedDate = new Date(dateObj.getTime() + 3 * 24 * 60 * 60 * 1000); // +3 days
 
   const reviewDateStr = `Expected: ${formatDate(reviewDate)}`;
   const progressDateStr = `Expected: ${formatDate(progressDate)}`;

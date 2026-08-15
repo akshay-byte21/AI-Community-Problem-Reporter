@@ -12,11 +12,7 @@ const LoginScreen = ({ navigation }) => {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [otp, setOtp] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  
-  // 1: Enter Identifier, 2: Enter OTP, 3: Set Password
-  const [signupStep, setSignupStep] = useState(1); 
+  const [showPassword, setShowPassword] = useState(false); 
 
   const handleLogin = async () => {
     if (!identifier || !password) {
@@ -27,35 +23,15 @@ const LoginScreen = ({ navigation }) => {
     if (!success) Alert.alert('Error', 'Invalid credentials');
   };
 
-  const handleSendOtp = async () => {
+
+
+  const handleCreateAccount = async () => {
     if (!identifier) {
       Alert.alert('Error', 'Please enter your Email or Phone number');
       return;
     }
-    const res = await sendOtp(identifier);
-    if (res.success) {
-      setSignupStep(2);
-    } else {
-      Alert.alert('Error', res.message);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (!otp) {
-      Alert.alert('Error', 'Please enter the 4-digit code');
-      return;
-    }
-    const res = await verifyOtp(identifier, otp);
-    if (res.success) {
-      setSignupStep(3);
-    } else {
-      Alert.alert('Error', res.message);
-    }
-  };
-
-  const handleCreateAccount = async () => {
-    if (!password || password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+    if (!password) {
+      Alert.alert('Error', 'Please enter a password');
       return;
     }
     if (password.length < 6) {
@@ -63,26 +39,22 @@ const LoginScreen = ({ navigation }) => {
       return;
     }
 
-    const success = await register(identifier, password);
-    if (success) {
+    const res = await register(identifier, password);
+    if (res.success) {
       Alert.alert('Success', 'Account created successfully! Please log in.');
       // Switch back to login
       setIsLogin(true);
-      setSignupStep(1);
       setPassword('');
       setConfirmPassword('');
-      setOtp('');
     } else {
-      Alert.alert('Error', 'Account creation failed. Identifier might already exist.');
+      Alert.alert('Error', res.message === 'Account with this email/phone already exists' ? 'Phone number is already existed' : res.message);
     }
   };
 
   const switchMode = () => {
     setIsLogin(!isLogin);
-    setSignupStep(1);
     setPassword('');
     setConfirmPassword('');
-    setOtp('');
   };
 
   return (
@@ -101,84 +73,43 @@ const LoginScreen = ({ navigation }) => {
               </View>
             </View>
             <Text style={styles.welcomeText}>
-              {isLogin ? 'Welcome Back!' : (signupStep === 1 ? 'Create Account' : signupStep === 2 ? 'Verify Code' : 'Set Password')}
+              {isLogin ? 'Welcome Back!' : 'Create Account'}
             </Text>
             <Text style={styles.subText}>
-              {isLogin 
-                ? 'Login to continue' 
-                : (signupStep === 1 
-                  ? 'Enter Email or Phone to sign up' 
-                  : signupStep === 2 
-                    ? `Code sent to ${identifier}`
-                    : 'Secure your account')}
+              {isLogin ? 'Login to continue' : 'Enter Phone number to sign up'}
             </Text>
           </View>
 
           <View style={styles.form}>
-            {/* IDENTIFIER INPUT - Show in Login or Signup Step 1 */}
-            {(isLogin || signupStep === 1) && (
-              <View style={styles.inputWrapper}>
-                <Ionicons name="person-outline" size={20} color="#888" style={styles.inputIcon} />
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="Email or Phone number" 
-                  placeholderTextColor="#999"
-                  value={identifier}
-                  onChangeText={setIdentifier}
-                  keyboardType="default"
-                  autoCapitalize="none"
-                />
-              </View>
-            )}
+            {/* IDENTIFIER INPUT */}
+            <View style={styles.inputWrapper}>
+              <Ionicons name="person-outline" size={20} color="#888" style={styles.inputIcon} />
+              <TextInput 
+                style={styles.input} 
+                placeholder="Email or Phone number" 
+                placeholderTextColor="#999"
+                value={identifier}
+                onChangeText={setIdentifier}
+                keyboardType="default"
+                autoCapitalize="none"
+              />
+            </View>
 
-            {/* OTP INPUT - Show in Signup Step 2 */}
-            {(!isLogin && signupStep === 2) && (
-              <View style={styles.inputWrapper}>
-                <Ionicons name="keypad-outline" size={20} color="#888" style={styles.inputIcon} />
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="4-digit Verification Code" 
-                  placeholderTextColor="#999"
-                  value={otp}
-                  onChangeText={setOtp}
-                  keyboardType="number-pad"
-                  maxLength={4}
-                />
-              </View>
-            )}
-
-            {/* PASSWORD INPUT - Show in Login or Signup Step 3 */}
-            {(isLogin || (!isLogin && signupStep === 3)) && (
-              <View style={styles.inputWrapper}>
-                <Ionicons name="lock-closed-outline" size={20} color="#888" style={styles.inputIcon} />
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="Password"
-                  placeholderTextColor="#999"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                  <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#888" />
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* CONFIRM PASSWORD - Show in Signup Step 3 */}
-            {(!isLogin && signupStep === 3) && (
-              <View style={styles.inputWrapper}>
-                <Ionicons name="lock-closed-outline" size={20} color="#888" style={styles.inputIcon} />
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="Confirm Password"
-                  placeholderTextColor="#999"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry={!showPassword}
-                />
-              </View>
-            )}
+            {/* PASSWORD INPUT */}
+            <View style={styles.inputWrapper}>
+              <Ionicons name="lock-closed-outline" size={20} color="#888" style={styles.inputIcon} />
+              <TextInput 
+                style={styles.input} 
+                placeholder="Password"
+                placeholderTextColor="#999"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#888" />
+              </TouchableOpacity>
+            </View>
             
             {isLogin && (
               <TouchableOpacity>
@@ -189,24 +120,10 @@ const LoginScreen = ({ navigation }) => {
             {/* ACTION BUTTON */}
             <TouchableOpacity 
               style={styles.button} 
-              onPress={
-                isLogin 
-                  ? handleLogin 
-                  : (signupStep === 1 
-                      ? handleSendOtp 
-                      : signupStep === 2 
-                        ? handleVerifyOtp 
-                        : handleCreateAccount)
-              }
+              onPress={isLogin ? handleLogin : handleCreateAccount}
             >
               <Text style={styles.buttonText}>
-                {isLogin 
-                  ? 'Login' 
-                  : (signupStep === 1 
-                      ? 'Send Verification Code' 
-                      : signupStep === 2 
-                        ? 'Verify Code' 
-                        : 'Create Account')}
+                {isLogin ? 'Login' : 'Create Account'}
               </Text>
             </TouchableOpacity>
 

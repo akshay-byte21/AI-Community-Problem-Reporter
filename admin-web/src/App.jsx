@@ -13,13 +13,17 @@ import ComplaintsView from './components/ComplaintsView';
 import CategoriesView from './components/CategoriesView';
 import DepartmentsView from './components/DepartmentsView';
 
+// Bypass localtunnel warning screen
+axios.defaults.headers.common['Bypass-Tunnel-Reminder'] = 'true';
+axios.defaults.headers.common['User-Agent'] = 'axios/0.21.1';
+
 function App() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('Dashboard');
 
   // Hardcoded for now. In a real app, this comes from env vars.
-  const API_URL = 'https://thunder-highest-regulations-politics.trycloudflare.com';
+  const API_URL = 'http://192.168.31.33:3000';
 
   useEffect(() => {
     const fetchReports = async () => {

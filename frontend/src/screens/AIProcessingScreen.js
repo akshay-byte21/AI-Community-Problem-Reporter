@@ -13,6 +13,7 @@ const AIProcessingScreen = ({ navigation, route }) => {
   const [progress, setProgress] = useState(0);
   const [apiResult, setApiResult] = useState(null);
   const [apiError, setApiError] = useState(false);
+  const [isInvalid, setIsInvalid] = useState(false);
 
   const steps = [
     'Image received',
@@ -74,15 +75,8 @@ const AIProcessingScreen = ({ navigation, route }) => {
     // When both visual steps are done (step === 3) AND API result is ready
     if (step === 3 && (apiResult || apiError)) {
       setTimeout(() => {
-        if (apiResult?.category === 'Invalid') {
-          // If the image was flagged as invalid by the AI
-          import('react-native').then(({ Alert }) => {
-            Alert.alert(
-              "Invalid Image Detected",
-              "The image does not appear to be related to road, garbage, water, sanitary, or electricity issues. Please capture a valid civic issue.",
-              [{ text: "OK", onPress: () => navigation.goBack() }]
-            );
-          });
+        if (apiResult?.category === 'Invalid' || apiResult?.category === 'Unidentified Issue') {
+          setIsInvalid(true);
         } else {
           navigation.replace('ReviewComplaint', {
             imageUri,
@@ -96,6 +90,35 @@ const AIProcessingScreen = ({ navigation, route }) => {
       }, 1000);
     }
   }, [step, apiResult, apiError]);
+
+  if (isInvalid) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          <Ionicons name="close-circle" size={80} color="#EF4444" style={{ marginBottom: 20 }} />
+          <Text style={styles.title}>Image Not Recognized</Text>
+          <Text style={styles.subtitle}>
+            This image does not match our supported civic issues.
+          </Text>
+          <View style={styles.invalidInfoContainer}>
+             <Text style={styles.invalidInfoText}>We only accept reports for:</Text>
+             <Text style={styles.invalidListText}>• Road & Potholes</Text>
+             <Text style={styles.invalidListText}>• Electricity & Street Lights</Text>
+             <Text style={styles.invalidListText}>• Sanitary & Sewage</Text>
+             <Text style={styles.invalidListText}>• Water Leakage</Text>
+             <Text style={styles.invalidListText}>• Garbage & Solid Waste</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.retakeButton} 
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="camera-outline" size={20} color="#fff" />
+            <Text style={styles.retakeButtonText}>Retake Picture</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -213,6 +236,43 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontWeight: '500',
     fontSize: 14,
+  },
+  invalidInfoContainer: {
+    backgroundColor: '#FEE2E2',
+    padding: 20,
+    borderRadius: 12,
+    width: '100%',
+    marginBottom: 40,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+  },
+  invalidInfoText: {
+    fontWeight: 'bold',
+    color: '#991B1B',
+    marginBottom: 10,
+    fontSize: 16,
+  },
+  invalidListText: {
+    color: '#7F1D1D',
+    fontSize: 15,
+    marginBottom: 6,
+    marginLeft: 10,
+  },
+  retakeButton: {
+    backgroundColor: '#1B8C4A',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    width: '100%',
+  },
+  retakeButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 10,
   }
 });
 

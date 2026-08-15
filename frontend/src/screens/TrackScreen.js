@@ -100,7 +100,13 @@ const TrackScreen = ({ navigation }) => {
                 <View style={styles.cardInfo}>
                   <Text style={[styles.complaintIdLabel, { color: textSecondary }]}>Complaint ID</Text>
                   <Text style={[styles.idText, { color: textPrimary }]}>{fakeId}</Text>
-                  <Text style={[styles.dateText, { color: textSecondary }]}>Submitted on {dateStr}</Text>
+                  <Text style={[styles.dateText, { color: textSecondary }]}>Submitted: {dateStr}</Text>
+                  
+                  {report.status !== 'Completed' && report.status !== 'Solved' && (
+                    <Text style={[styles.dateText, { color: textSecondary, marginTop: 4, fontWeight: '500' }]}>
+                      Expected Res: {new Date(dateObj.getTime() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    </Text>
+                  )}
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: badgeBg }]}>
                   <Text style={[styles.statusText, { color: badgeColor }]}>{report.status}</Text>

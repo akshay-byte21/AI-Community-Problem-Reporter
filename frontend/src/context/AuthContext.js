@@ -2,14 +2,19 @@ import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
+// Bypass localtunnel warning screen
+axios.defaults.headers.common['Bypass-Tunnel-Reminder'] = 'true';
+axios.defaults.headers.common['User-Agent'] = 'axios/0.21.1';
+
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [userToken, setUserToken] = useState(null);
+  const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Use stable Cloudflare Tunnel public URL to bypass local network and firewall restrictions
-  const API_URL = 'https://thunder-highest-regulations-politics.trycloudflare.com';
+  // Use stable localtunnel public URL to bypass local network and firewall restrictions
+  const API_URL = 'https://trusted-shaped-ericsson-revolutionary.trycloudflare.com';
 
   const sendOtp = async (identifier) => {
     try {
@@ -47,10 +52,10 @@ export const AuthProvider = ({ children }) => {
   const register = async (identifier, password) => {
     try {
       await axios.post(`${API_URL}/register`, { identifier, password });
-      return true;
+      return { success: true };
     } catch (e) {
       console.error(e);
-      return false;
+      return { success: false, message: e.response?.data?.error || 'Account creation failed.' };
     }
   };
 

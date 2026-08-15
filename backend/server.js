@@ -13,23 +13,25 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const cloudinary = require('cloudinary').v2;
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
-
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'prbm_reports',
-    allowed_formats: ['jpg', 'png', 'jpeg']
+// Setup storage for image uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const dataDir = path.join(__dirname, 'data');
+    if (!fs.existsSync(dataDir)){
+        fs.mkdirSync(dataDir);
+    }
+    const dir = path.join(dataDir, 'uploads');
+    if (!fs.existsSync(dir)){
+        fs.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname)); // Append extension
   }
 });
 const upload = multer({ storage: storage });
+app.use('/uploads', express.static(path.join(__dirname, 'data', 'uploads')));
 
 const SECRET_KEY = 'super_secret_key_for_this_app_only'; // In production, use env variable
 
@@ -89,9 +91,9 @@ app.post('/register', async (req, res) => {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    db.run(`INSERT INTO users (identifier, password, name) VALUES (?, ?, ?) RETURNING id`, [identifier, hashedPassword, name || ''], function(err) {
+    db.run(`INSERT INTO users (identifier, password, name) VALUES (?, ?, ?)`, [identifier, hashedPassword, name || ''], function(err) {
       if (err) {
-        if (err.message.includes('duplicate key value violates unique constraint') || err.message.includes('UNIQUE constraint failed')) {
+        if (err.message.includes('UNIQUE constraint failed')) {
           return res.status(400).json({ error: 'Account with this email/phone already exists' });
         }
         return res.status(500).json({ error: err.message });
@@ -255,7 +257,7 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
     }
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const imagePath = path.join(__dirname, req.file.path);
+    const imagePath = req.file.path;
     const mimeType = req.file.mimetype;
     
     const response = await ai.models.generateContent({
@@ -290,11 +292,11 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
 // Submit a new report
 app.post('/reports', authenticateToken, upload.single('image'), (req, res) => {
   const { category, description, department, lat, lng, address } = req.body;
-  const imageUrl = req.file ? req.file.path : null;
+  const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
   const userId = req.user.userId;
 
   db.run(
-    `INSERT INTO reports (user_id, category, description, department, lat, lng, address, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+    `INSERT INTO reports (user_id, category, description, department, lat, lng, address, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [userId, category, description, department, lat, lng, address, imageUrl], function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.status(201).json({ message: 'Report submitted', reportId: this.lastID });

@@ -235,7 +235,7 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
         });
 
         const response = await ai.models.generateContent({
-          model: 'gemini-3.6-flash',
+          model: 'gemini-1.5-flash',
           contents: contents
         });
 
@@ -247,7 +247,8 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
           return res.status(400).json({ error: `AI Verification Failed: ${verification.reason}` });
         }
       } catch (aiErr) {
-        console.error("AI Verification failed, continuing anyway", aiErr);
+        console.error("AI Verification failed", aiErr);
+        return res.status(400).json({ error: `AI System Error: Could not verify image.` });
       }
     }
 
@@ -375,7 +376,7 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
     const base64Data = await urlToBase64(imagePath);
 
     const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: 'gemini-1.5-flash',
         contents: [
             "Analyze this image to determine if it shows a civic issue related to: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, or electricity issues (e.g. fallen poles, cut wires). If it matches one of these, return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (a formal request letter of 3-4 sentences addressing the municipal authority describing the issue, providing context, and respectfully requesting action), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). If the image DOES NOT relate to any of these civic issues, return ONLY this JSON: {\"category\": \"Invalid\", \"description\": \"Invalid image: Does not match civic issues\", \"department\": \"None\"}. Return ONLY valid JSON, nothing else.",
             {

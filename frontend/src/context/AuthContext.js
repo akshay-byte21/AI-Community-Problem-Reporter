@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   // The backend URL - update this when your Cloudflare tunnel restarts
-  const API_URL = 'https://campus-coleman-systems-guides.trycloudflare.com';
+  const API_URL = 'https://ai-community-problem-reporter.onrender.com';
 
   const sendOtp = async (identifier) => {
     try {

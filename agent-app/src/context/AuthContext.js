@@ -10,7 +10,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Use the active Cloudflare Tunnel URL
-  const API_URL = 'https://campus-coleman-systems-guides.trycloudflare.com';
+  const API_URL = 'https://ai-community-problem-reporter.onrender.com';
 
   const login = async (phone) => {
     try {

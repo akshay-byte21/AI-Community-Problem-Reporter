@@ -211,17 +211,25 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
       try {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         let contents = [
-          `You are a strict AI verification system. Analyze these two images. 
-          The FIRST image is the 'Before' state (the reported civic issue). 
-          The SECOND image is the 'After' state (uploaded by the agent as proof of resolution). 
-          The issue category is: '${row.category}' and the description is: '${row.description}'. 
-          
-          CRITICAL RULES:
-          1. The SECOND image MUST show the EXACT SAME LOCATION and surrounding environment as the FIRST image.
-          2. If the SECOND image is clearly a different location, or a random object (like a keyboard, monitor, room, etc.), you MUST reject it.
-          3. Does the SECOND image clearly show that the issue in the FIRST image has been resolved? (e.g., garbage removed, pothole filled).
-          
-          Return a JSON object with 'valid' (boolean) and 'reason' (string explaining why). Reply ONLY with valid JSON.`
+          `You are a strict, highly critical AI verification system. You are auditing a civic worker who might be trying to cheat the system.
+          Analyze these two images. 
+          FIRST image: The 'Before' state (the reported civic issue). 
+          SECOND image: The 'After' state (uploaded by the worker as proof of resolution).
+          Issue category: '${row.category}'. Description: '${row.description}'. 
+
+          Perform a step-by-step analysis:
+          1. Identify the environment in the FIRST image.
+          2. Identify the environment in the SECOND image.
+          3. Are they the EXACT SAME physical location? If the second image is a random object (like a keyboard, screen, or floor), the answer is NO.
+          4. If they match, is the civic issue fixed in the second image?
+
+          Respond ONLY with a JSON object in this exact format:
+          {
+            "environment_match": boolean,
+            "issue_resolved": boolean,
+            "reason": "your step-by-step reasoning",
+            "valid": boolean (true ONLY if both environment_match and issue_resolved are true)
+          }`
         ];
 
         if (row.image_url) {

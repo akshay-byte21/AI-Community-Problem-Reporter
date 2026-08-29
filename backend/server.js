@@ -211,7 +211,17 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
       try {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         let contents = [
-          `Analyze these two images. The FIRST image is the 'Before' state (the reported civic issue). The SECOND image is the 'After' state (uploaded by the agent as proof of resolution). The issue category is: '${row.category}' and the description is: '${row.description}'. Does the SECOND image clearly show that the issue in the FIRST image has been resolved? (e.g., garbage removed, pothole filled, pipe fixed). Return a JSON object with 'valid' (boolean) and 'reason' (string explaining why). Reply ONLY with valid JSON.`
+          `You are a strict AI verification system. Analyze these two images. 
+          The FIRST image is the 'Before' state (the reported civic issue). 
+          The SECOND image is the 'After' state (uploaded by the agent as proof of resolution). 
+          The issue category is: '${row.category}' and the description is: '${row.description}'. 
+          
+          CRITICAL RULES:
+          1. The SECOND image MUST show the EXACT SAME LOCATION and surrounding environment as the FIRST image.
+          2. If the SECOND image is clearly a different location, or a random object (like a keyboard, monitor, room, etc.), you MUST reject it.
+          3. Does the SECOND image clearly show that the issue in the FIRST image has been resolved? (e.g., garbage removed, pothole filled).
+          
+          Return a JSON object with 'valid' (boolean) and 'reason' (string explaining why). Reply ONLY with valid JSON.`
         ];
 
         if (row.image_url) {
@@ -223,7 +233,10 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
             }
           });
         } else {
-           contents[0] = `Analyze this image. Does it show a resolved state of a civic issue related to: '${row.category}' (Description: '${row.description}')? For example, if it's 'Garbage', is the area now clean? If it's 'Water', is there a repaired pipe or dry area? Return a JSON object with 'valid' (boolean) and 'reason' (string explaining why). Reply ONLY with valid JSON.`;
+           contents[0] = `You are a strict AI verification system. Analyze this image. 
+           Does it show a resolved state of a civic issue related to: '${row.category}' (Description: '${row.description}')? 
+           CRITICAL RULE: If the image is a random object (like a keyboard, monitor, indoor room) and NOT a civic environment, you MUST return valid: false.
+           Return a JSON object with 'valid' (boolean) and 'reason' (string explaining why). Reply ONLY with valid JSON.`;
         }
 
         const newBase64 = await urlToBase64(imagePath);

@@ -1,5 +1,6 @@
-import React, { useContext, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Image, ActivityIndicator } from 'react-native';
+import React, { useContext, useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Image, ActivityIndicator, Platform, StatusBar } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
@@ -10,9 +11,11 @@ const ReportsScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const filterCategory = route.params?.filter || null;
 
-  useEffect(() => {
-    fetchReports();
-  }, [filterCategory]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchReports();
+    }, [filterCategory])
+  );
 
   const fetchReports = async () => {
     try {
@@ -112,6 +115,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FAFAFA',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   loaderContainer: {
     flex: 1,

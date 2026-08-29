@@ -2,11 +2,12 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
-const dataDir = path.resolve(__dirname, 'data');
+const dataDir = path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir);
+  fs.mkdirSync(dataDir, { recursive: true });
 }
-const dbPath = path.resolve(dataDir, 'database.sqlite');
+
+const dbPath = process.env.DB_PATH || path.join(dataDir, 'database.sqlite');
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Error opening database', err.message);
@@ -84,6 +85,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         address TEXT,
         status TEXT DEFAULT 'Pending',
         image_url TEXT,
+        resolution_image_url TEXT,
         assigned_staff_id INTEGER,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id),
@@ -95,6 +97,15 @@ const db = new sqlite3.Database(dbPath, (err) => {
       
       // Attempt to add assigned_staff_id column if it doesn't exist (for existing databases)
       db.run(`ALTER TABLE reports ADD COLUMN assigned_staff_id INTEGER REFERENCES staff(id)`, (err) => {});
+
+      // Attempt to add resolution_image_url column if it doesn't exist
+      db.run(`ALTER TABLE reports ADD COLUMN resolution_image_url TEXT`, (err) => {});
+
+      // Attempt to add specific timestamp columns
+      db.run(`ALTER TABLE reports ADD COLUMN reviewed_at DATETIME`, (err) => {});
+      db.run(`ALTER TABLE reports ADD COLUMN progress_at DATETIME`, (err) => {});
+      db.run(`ALTER TABLE reports ADD COLUMN completed_at DATETIME`, (err) => {});
+      db.run(`ALTER TABLE reports ADD COLUMN solved_at DATETIME`, (err) => {});
     });
   }
 });

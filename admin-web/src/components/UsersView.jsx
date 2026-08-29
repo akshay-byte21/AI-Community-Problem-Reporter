@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Search } from 'lucide-react';
 
 const UsersView = ({ API_URL, reports }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -89,9 +90,35 @@ const UsersView = ({ API_URL, reports }) => {
     );
   }
 
+  const filteredUsers = users.filter(user => {
+    const nameMatch = (user.name || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const idMatch = (user.identifier || '').toLowerCase().includes(searchQuery.toLowerCase());
+    return nameMatch || idMatch;
+  });
+
   return (
     <div className="card">
-      <h2 className="card-title">Registered Users</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h2 className="card-title" style={{ marginBottom: 0 }}>Registered Users</h2>
+        
+        <div style={{ position: 'relative', width: '300px' }}>
+          <Search size={18} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+          <input
+            type="text"
+            placeholder="Search by name or phone..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ 
+              width: '100%', 
+              padding: '0.6rem 1rem 0.6rem 2.2rem', 
+              borderRadius: '8px', 
+              border: '1px solid var(--border-color)',
+              outline: 'none'
+            }}
+          />
+        </div>
+      </div>
+
       <div className="table-container">
         <table>
           <thead>
@@ -105,7 +132,7 @@ const UsersView = ({ API_URL, reports }) => {
             </tr>
           </thead>
           <tbody>
-            {users.map(user => (
+            {filteredUsers.map(user => (
               <tr key={user.id}>
                 <td style={{ color: 'var(--text-secondary)' }}>#{user.id}</td>
                 <td style={{ fontWeight: 500 }}>{user.name || 'Anonymous'}</td>
@@ -122,7 +149,7 @@ const UsersView = ({ API_URL, reports }) => {
                 </td>
               </tr>
             ))}
-            {users.length === 0 && (
+            {filteredUsers.length === 0 && (
               <tr>
                 <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No users found</td>
               </tr>

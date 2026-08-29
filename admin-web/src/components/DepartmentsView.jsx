@@ -46,15 +46,15 @@ const DepartmentsView = ({ reports, API_URL }) => {
           >
             <ArrowLeft size={24} />
           </button>
-          <h2 className="card-title" style={{ marginBottom: 0 }}>{selectedDept} - Staff & Workload</h2>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>{selectedDept} - Agents & Workload</h2>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
           {/* Staff List */}
           <div>
-            <h3 style={{ marginBottom: '1rem', color: 'var(--text-secondary)' }}>Available Staff</h3>
+            <h3 style={{ marginBottom: '1rem', color: 'var(--text-secondary)' }}>Available Agents</h3>
             {deptStaff.length === 0 ? (
-              <p style={{ color: 'var(--text-secondary)' }}>No staff registered for this department.</p>
+              <p style={{ color: 'var(--text-secondary)' }}>No Agents registered for this department.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {deptStaff.map(s => {
@@ -151,11 +151,8 @@ const DepartmentsView = ({ reports, API_URL }) => {
                 <td style={{ fontWeight: 500 }}>{dept}</td>
                 <td>{departments[dept]}</td>
                 <td>
-                  <button 
-                    onClick={() => setSelectedDept(dept)}
-                    style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontWeight: 600 }}
-                  >
-                    View Staff & Assign
+                  <button onClick={() => setSelectedDept(dept)} style={{ background: 'var(--primary-color)', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', width: '100%' }}>
+                    View Agents & Assign
                   </button>
                 </td>
               </tr>

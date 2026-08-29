@@ -6,6 +6,7 @@ import AIProcessingScreen from '../screens/AIProcessingScreen';
 import ReviewComplaintScreen from '../screens/ReviewComplaintScreen';
 import SubmitScreen from '../screens/SubmitScreen';
 import StatusDetailsScreen from '../screens/StatusDetailsScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 
 const Stack = createStackNavigator();
 
@@ -18,6 +19,7 @@ const AppStack = () => {
       <Stack.Screen name="ReviewComplaint" component={ReviewComplaintScreen} />
       <Stack.Screen name="Submit" component={SubmitScreen} />
       <Stack.Screen name="StatusDetails" component={StatusDetailsScreen} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
     </Stack.Navigator>
   );
 };

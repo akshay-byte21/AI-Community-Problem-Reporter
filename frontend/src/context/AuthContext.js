@@ -13,8 +13,8 @@ export const AuthProvider = ({ children }) => {
   const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Use stable localtunnel public URL to bypass local network and firewall restrictions
-  const API_URL = 'https://trusted-shaped-ericsson-revolutionary.trycloudflare.com';
+  // The backend URL - update this when your Cloudflare tunnel restarts
+  const API_URL = 'https://campus-coleman-systems-guides.trycloudflare.com';
 
   const sendOtp = async (identifier) => {
     try {
@@ -42,10 +42,10 @@ export const AuthProvider = ({ children }) => {
       const token = res.data.token;
       setUserToken(token);
       await AsyncStorage.setItem('userToken', token);
-      return true;
+      return { success: true };
     } catch (e) {
       console.error(e);
-      return false;
+      return { success: false, message: e.response?.data?.error || 'Network error: Cannot reach server.' };
     }
   };
 
@@ -67,8 +67,8 @@ export const AuthProvider = ({ children }) => {
   const isLoggedIn = async () => {
     try {
       setIsLoading(true);
-      let token = await AsyncStorage.getItem('userToken');
-      setUserToken(token);
+      // Intentionally NOT loading token from AsyncStorage so app ALWAYS starts at Login screen
+      setUserToken(null);
       setIsLoading(false);
     } catch (e) {
       console.error(e);

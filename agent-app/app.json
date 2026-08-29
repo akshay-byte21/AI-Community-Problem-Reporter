@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "agent-app",
+    "slug": "agent-app-v2",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.akshay_ganesh.agentapp2",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "owner": "akshayganeshs-team",
+    "extra": {
+      "eas": {
+        "projectId": "28f124b1-da93-47d7-b44f-d9a8cc2deff4"
+      }
+    }
+  }
+}

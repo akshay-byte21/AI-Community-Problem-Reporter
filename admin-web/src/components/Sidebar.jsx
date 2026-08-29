@@ -1,7 +1,7 @@
 import React from 'react';
 import { LayoutDashboard, FileText, ListTree, Building2, Users, FileBarChart, PieChart, Bell, Settings, MapPin } from 'lucide-react';
 
-const Sidebar = ({ activeTab, setActiveTab }) => {
+const Sidebar = ({ activeTab, setActiveTab, unreadCount = 0 }) => {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -36,11 +36,14 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
       </nav>
       
       <div style={{ marginTop: 'auto', paddingTop: '2rem' }}>
-        <button className="nav-link">
-          <Bell size={20} /> Notifications
-        </button>
-        <button className="nav-link">
-          <Settings size={20} /> Settings
+        <button className={`nav-link ${activeTab === 'Notifications' ? 'active' : ''}`} onClick={() => setActiveTab('Notifications')} style={{ display: 'flex', alignItems: 'center' }}>
+          <Bell size={20} style={{ marginRight: '0.5rem' }} /> 
+          Notifications
+          {unreadCount > 0 && (
+            <span style={{ backgroundColor: 'var(--critical-color, #dc2626)', color: 'white', borderRadius: '999px', padding: '0.1rem 0.5rem', fontSize: '0.75rem', fontWeight: 600, marginLeft: 'auto' }}>
+              {unreadCount}
+            </span>
+          )}
         </button>
         
         <div style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem' }}>

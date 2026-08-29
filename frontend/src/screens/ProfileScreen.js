@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
@@ -117,6 +117,10 @@ const ProfileScreen = ({ navigation }) => {
           )}
         </TouchableOpacity>
         
+        <TouchableOpacity style={[styles.logoutButton, {marginTop: 24, marginBottom: 10}]} onPress={() => navigation.navigate('ChangePassword')}>
+          <Text style={[styles.logoutButtonText, {color: '#4B5563'}]}>Change Password</Text>
+        </TouchableOpacity>
+        
         <TouchableOpacity style={styles.logoutButton} onPress={logout}>
           <Text style={styles.logoutButtonText}>Log Out</Text>
         </TouchableOpacity>
@@ -129,6 +133,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   loaderContainer: {
     flex: 1,

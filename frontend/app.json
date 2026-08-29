@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Community Problem Reporter",
-    "slug": "frontend",
+    "slug": "frontend-v2",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -10,7 +10,7 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.community.problemreporter",
+      "package": "com.community.problemreporter2",
       "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
@@ -20,11 +20,11 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "owner": "akshayganeshs-team",
     "extra": {
       "eas": {
-        "projectId": "a9c43ef6-12c4-41eb-8bbe-16ae7181a5b7"
+        "projectId": "f0aa6c89-e427-4cad-8eb6-12707fe4e9a2"
       }
-    },
-    "owner": "akshay_ganesh"
+    }
   }
 }

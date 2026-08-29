@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Image, Modal, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Image, Modal, Animated, Dimensions, Platform, StatusBar } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -225,6 +225,10 @@ const HomeScreen = ({ navigation }) => {
               <Ionicons name="help-circle-outline" size={24} color="#333" />
               <Text style={styles.drawerItemText}>Help & Support</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { toggleMenu(); navigation.navigate('ChangePassword'); }}>
+              <Ionicons name="lock-closed-outline" size={24} color="#333" />
+              <Text style={styles.drawerItemText}>Change Password</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.drawerItem} onPress={() => { toggleMenu(); logout && logout(); }}>
               <Ionicons name="log-out-outline" size={24} color="#E53E3E" />
               <Text style={[styles.drawerItemText, {color: '#E53E3E'}]}>Logout</Text>
@@ -241,6 +245,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FAFAFA',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   scrollContent: {
     paddingHorizontal: 20,

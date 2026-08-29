@@ -33,10 +33,6 @@ const Header = () => {
         }}>
           <span>{dateStr}, {timeStr}</span>
         </div>
-        
-        <button className="btn-primary">
-          <Plus size={18} /> New Complaint
-        </button>
       </div>
     </header>
   );

@@ -19,8 +19,8 @@ const LoginScreen = ({ navigation }) => {
       Alert.alert('Error', 'Please enter both Email/Phone and password');
       return;
     }
-    const success = await login(identifier, password);
-    if (!success) Alert.alert('Error', 'Invalid credentials');
+    const result = await login(identifier, password);
+    if (!result.success) Alert.alert('Error', result.message || 'Invalid credentials');
   };
 
 
@@ -127,15 +127,6 @@ const LoginScreen = ({ navigation }) => {
               </Text>
             </TouchableOpacity>
 
-            {isLogin && (
-              <>
-                <Text style={styles.orText}>or</Text>
-                <TouchableOpacity style={styles.googleButton}>
-                  <Ionicons name="logo-google" size={20} color="#DB4437" style={styles.googleIcon} />
-                  <Text style={styles.googleButtonText}>Login with Google</Text>
-                </TouchableOpacity>
-              </>
-            )}
 
           </View>
           

@@ -14,24 +14,24 @@ app.use(cors());
 app.use(express.json());
 
 // Setup storage for image uploads
+const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, 'data', 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Multer storage configuration
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const dataDir = path.join(__dirname, 'data');
-    if (!fs.existsSync(dataDir)){
-        fs.mkdirSync(dataDir);
-    }
-    const dir = path.join(dataDir, 'uploads');
-    if (!fs.existsSync(dir)){
-        fs.mkdirSync(dir, { recursive: true });
-    }
-    cb(null, dir);
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
   },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname)); // Append extension
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname)); // unique filename
   }
 });
 const upload = multer({ storage: storage });
-app.use('/uploads', express.static(path.join(__dirname, 'data', 'uploads')));
+
+// Serve uploaded static files
+app.use('/uploads', express.static(uploadDir));
 
 const SECRET_KEY = 'super_secret_key_for_this_app_only'; // In production, use env variable
 
@@ -151,6 +151,131 @@ function authenticateToken(req, res, next) {
   });
 }
 
+// --- AGENT ENDPOINTS ---
+
+// Agent Login
+app.post('/agent-login', (req, res) => {
+  const phone = req.body.phone;
+  if (!phone) return res.status(400).json({ error: 'Phone number required' });
+
+  db.get(`SELECT * FROM staff WHERE phone = ?`, [phone], (err, staff) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!staff) return res.status(400).json({ error: 'Agent not found' });
+
+    // Since they use phone as username and password, we just issue a token
+    const token = jwt.sign({ staffId: staff.id, department: staff.department }, SECRET_KEY, { expiresIn: '7d' });
+    res.json({ token, staff });
+  });
+});
+
+// Middleware for agent auth
+function authenticateAgent(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (token == null) return res.sendStatus(401);
+
+  jwt.verify(token, SECRET_KEY, (err, user) => {
+    if (err || !user.staffId) return res.sendStatus(403);
+    req.agent = user;
+    next();
+  });
+}
+
+// Get assigned reports for agent
+app.get('/agent/reports', authenticateAgent, (req, res) => {
+  db.all(`
+    SELECT r.*, u.identifier as reporter_identifier, u.name as reporter_name
+    FROM reports r 
+    LEFT JOIN users u ON r.user_id = u.id 
+    WHERE r.assigned_staff_id = ?
+    ORDER BY r.created_at DESC
+  `, [req.agent.staffId], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// Resolve a report with a photo
+app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req, res) => {
+  const reportId = req.body.reportId;
+  if (!req.file || !reportId) return res.status(400).json({ error: 'Image and reportId required' });
+
+  try {
+    const imagePath = req.file.path;
+    const mimeType = req.file.mimetype;
+
+    // Fetch report to verify
+    db.get('SELECT category, description, image_url FROM reports WHERE id = ? AND assigned_staff_id = ?', [reportId, req.agent.staffId], async (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (!row) return res.status(404).json({ error: 'Report not found or not assigned to you' });
+
+      // Verify with Gemini
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+          
+          let contents = [
+            `Analyze these two images. The FIRST image is the 'Before' state (the reported civic issue). The SECOND image is the 'After' state (uploaded by the agent as proof of resolution). The issue category is: '${row.category}' and the description is: '${row.description}'. Does the SECOND image clearly show that the issue in the FIRST image has been resolved? (e.g., garbage removed, pothole filled, pipe fixed). Return a JSON object with 'valid' (boolean) and 'reason' (string explaining why). Reply ONLY with valid JSON.`
+          ];
+
+          if (row.image_url && row.image_url.startsWith('/uploads/')) {
+            const originalImagePath = path.join(__dirname, 'data', row.image_url);
+            if (fs.existsSync(originalImagePath)) {
+              contents.push({
+                inlineData: {
+                  data: fs.readFileSync(originalImagePath).toString("base64"),
+                  mimeType: "image/jpeg"
+                }
+              });
+            }
+          } else {
+             contents[0] = `Analyze this image. Does it show a resolved state of a civic issue related to: '${row.category}' (Description: '${row.description}')? For example, if it's 'Garbage', is the area now clean? If it's 'Water', is there a repaired pipe or dry area? Return a JSON object with 'valid' (boolean) and 'reason' (string explaining why). Reply ONLY with valid JSON.`;
+          }
+
+          contents.push({
+            inlineData: {
+              data: fs.readFileSync(imagePath).toString("base64"),
+              mimeType: mimeType
+            }
+          });
+
+          const response = await ai.models.generateContent({
+            model: 'gemini-3.6-flash',
+            contents: contents
+          });
+
+          const text = response.text;
+          const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+          const verification = JSON.parse(jsonStr);
+
+          if (!verification.valid) {
+            return res.status(400).json({ error: `AI Verification Failed: ${verification.reason}` });
+          }
+        } catch (aiErr) {
+          console.error("AI Verification failed, continuing anyway", aiErr);
+        }
+      }
+
+      // Upload to cloudinary (Removed: Use local storage URL instead)
+      const imageUrl = `/uploads/${req.file.filename}`;
+
+      db.run(
+        `UPDATE reports SET status = 'Pending Verification', resolution_image_url = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [imageUrl, reportId],
+        function (updateErr) {
+          if (updateErr) return res.status(500).json({ error: updateErr.message });
+          res.json({ message: 'Report resolved, pending user verification', imageUrl: imageUrl });
+        }
+      );
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to process resolution' });
+  }
+});
+
+// --- END AGENT ENDPOINTS ---
+
 // Admin: Get all users in the system
 app.get('/admin/users', (req, res) => {
   db.all(`
@@ -180,7 +305,7 @@ app.post('/admin/reports/:id/assign', (req, res) => {
   if (!staff_id) return res.status(400).json({ error: 'staff_id required' });
 
   // Update report to assign staff and change status to 'In Progress'
-  db.run(`UPDATE reports SET assigned_staff_id = ?, status = 'In Progress' WHERE id = ?`, [staff_id, id], function(err) {
+  db.run(`UPDATE reports SET assigned_staff_id = ?, status = 'In Progress', progress_at = CURRENT_TIMESTAMP WHERE id = ?`, [staff_id, id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     if (this.changes === 0) return res.status(404).json({ error: 'Report not found' });
     res.json({ message: 'Staff assigned successfully' });
@@ -296,10 +421,10 @@ app.post('/reports', authenticateToken, upload.single('image'), (req, res) => {
   const userId = req.user.userId;
 
   db.run(
-    `INSERT INTO reports (user_id, category, description, department, lat, lng, address, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [userId, category, description, department, lat, lng, address, imageUrl], function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.status(201).json({ message: 'Report submitted', reportId: this.lastID });
+    `INSERT INTO reports (user_id, category, description, department, lat, lng, address, image_url, assigned_staff_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+    [userId, category, description, department, lat, lng, address, imageUrl], function(insertErr) {
+      if (insertErr) return res.status(500).json({ error: insertErr.message });
+      res.status(201).json({ message: 'Report submitted', reportId: this.lastID, assignedStaffId: null });
     });
 });
 
@@ -308,7 +433,7 @@ app.put('/reports/:id/complete', authenticateToken, (req, res) => {
   const reportId = req.params.id;
   const userId = req.user.userId;
 
-  db.run(`UPDATE reports SET status = 'Completed' WHERE id = ? AND user_id = ?`, [reportId, userId], function(err) {
+  db.run(`UPDATE reports SET status = 'Solved', solved_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`, [reportId, userId], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     if (this.changes === 0) return res.status(404).json({ error: 'Report not found or not authorized' });
     res.json({ message: 'Report marked as completed successfully' });
@@ -320,15 +445,74 @@ app.put('/reports/:id/reopen', authenticateToken, (req, res) => {
   const reportId = req.params.id;
   const userId = req.user.userId;
 
-  db.run(`UPDATE reports SET status = 'In Progress' WHERE id = ? AND user_id = ?`, [reportId, userId], function(err) {
+  db.run(`UPDATE reports SET status = 'In Progress', resolution_image_url = NULL WHERE id = ? AND user_id = ?`, [reportId, userId], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     if (this.changes === 0) return res.status(404).json({ error: 'Report not found or not authorized' });
     res.json({ message: 'Report reopened successfully' });
   });
 });
 
-const PORT = 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on port ${PORT}`);
+// Admin: Manually assign staff to a report
+app.put('/admin/reports/:id/assign', (req, res) => {
+  const { staff_id } = req.body;
+  db.run(`UPDATE reports SET assigned_staff_id = ?, status = 'In Progress', progress_at = CURRENT_TIMESTAMP WHERE id = ?`, [staff_id, req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Staff assigned successfully' });
+  });
 });
 
+// Change Password Route
+app.put('/change-password', authenticateToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Both passwords required' });
+
+  try {
+    db.get('SELECT password FROM users WHERE id = ?', [req.user.id], async (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (!row) return res.status(404).json({ error: 'User not found' });
+
+      const isValid = await bcrypt.compare(currentPassword, row.password);
+      if (!isValid) return res.status(400).json({ error: 'Incorrect current password' });
+
+      const hashedNew = await bcrypt.hash(newPassword, 10);
+      db.run('UPDATE users SET password = ? WHERE id = ?', [hashedNew, req.user.id], function(updateErr) {
+        if (updateErr) return res.status(500).json({ error: updateErr.message });
+        res.json({ message: 'Password updated successfully' });
+      });
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// Auto-assign staff to complaints older than 3 days
+setInterval(() => {
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  db.all(`SELECT id, department FROM reports WHERE assigned_staff_id IS NULL AND created_at < ?`, [threeDaysAgo], (err, rows) => {
+    if (err) return console.error('Error fetching unassigned reports:', err);
+    if (!rows || rows.length === 0) return;
+
+    rows.forEach(report => {
+      db.all(`SELECT id FROM staff WHERE department = ?`, [report.department], (staffErr, staffRows) => {
+        if (staffErr || !staffRows || staffRows.length === 0) return;
+        const randomStaff = staffRows[Math.floor(Math.random() * staffRows.length)];
+        db.run(`UPDATE reports SET assigned_staff_id = ?, status = 'In Progress', progress_at = CURRENT_TIMESTAMP WHERE id = ?`, [randomStaff.id, report.id], (updateErr) => {
+          if (updateErr) console.error('Error auto-assigning staff:', updateErr);
+          else console.log(`Auto-assigned staff ${randomStaff.id} to report ${report.id} after 3 days.`);
+        });
+      });
+    });
+  });
+}, 60000); // Check every minute
+
+// Serve the Admin Dashboard
+app.use(express.static(path.join(__dirname, '../admin-web/dist')));
+app.use((req, res) => {
+  res.sendFile(path.join(__dirname, '../admin-web/dist/index.html'));
+});
+
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
+});

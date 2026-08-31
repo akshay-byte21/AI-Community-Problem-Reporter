@@ -255,7 +255,7 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
         });
 
         const response = await ai.models.generateContent({
-          model: 'gemini-1.5-pro',
+          model: 'gemini-3.7-flash',
           contents: contents
         });
 
@@ -396,7 +396,7 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
     const base64Data = await urlToBase64(imagePath);
 
     const response = await ai.models.generateContent({
-        model: 'gemini-1.5-pro',
+        model: 'gemini-3.7-flash',
         contents: [
             `You are an elite, highly strict civic issue classifier with forensic vision capabilities. 
              Analyze this image. You MUST detect if this is a photo of a computer/TV screen.

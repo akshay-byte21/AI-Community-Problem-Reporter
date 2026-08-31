@@ -4,11 +4,14 @@ const fs = require('fs');
 
 async function run() {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  const imagePath = "C:/Users/Akshay Ganesh/.gemini/antigravity/brain/009cf919-decc-4a02-aad7-4f8d050595d4/.user_uploaded/media_1788169630368.jpg";
+  const imagePath = "C:/Users/Akshay Ganesh/.gemini/antigravity/brain/009cf919-decc-4a02-aad7-4f8d050595d4/.user_uploaded/media_1788175833187.jpg";
   const imageBuffer = fs.readFileSync(imagePath);
   const base64Data = imageBuffer.toString('base64');
 
-  const response = await ai.models.generateContent({
+  let success = false;
+  while (!success) {
+    try {
+      const response = await ai.models.generateContent({
         model: 'gemini-3.7-flash',
         contents: [
             `You are an elite, highly strict civic issue classifier with forensic vision capabilities. 
@@ -31,9 +34,19 @@ async function run() {
                 }
             }
         ]
-    });
-    
-    console.log("Raw Response:", response.text);
+      });
+      console.log("Raw Response:", response.text);
+      success = true;
+    } catch (e) {
+      if (e.status === 503) {
+        console.log("503, retrying in 2 seconds...");
+        await new Promise(r => setTimeout(r, 2000));
+      } else {
+        console.error(e);
+        break;
+      }
+    }
+  }
 }
 
 run().catch(console.error);

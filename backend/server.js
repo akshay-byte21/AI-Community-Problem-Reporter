@@ -218,13 +218,13 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
           Issue category: '${row.category}'. Description: '${row.description}'. 
 
           Perform a step-by-step visual audit:
-          1. Is the SECOND image a photo of a computer screen, monitor, TV, or laptop? (Look VERY closely for screen bezels, wave structures/moiré pixel patterns, or screen glare). If you see ANY wave structures or pixel grids, the image is FAKE (environment_match: false).
+          1. Is the SECOND image a photo of a computer screen, monitor, TV, or laptop? (Look VERY closely for fine VERTICAL STRIPES, HORIZONTAL LINES, wave structures/moiré pixel patterns, or screen glare). If you see ANY vertical lines or pixel grids, the image is FAKE (environment_match: false).
           2. Compare the surroundings. Look at the landmarks, buildings, trees, walls, or road patterns in the FIRST image. Does the SECOND image contain these EXACT SAME landmarks and atmosphere? If the agent uploaded an unrelated image, environment_match is false.
           3. If they match, is the civic issue fixed in the second image?
 
           Respond ONLY with a JSON object in this exact format:
           {
-            "reason": "First, analyze both images. Look for screen bezels/moiré in the second image. Then compare the surroundings. Then check if the issue is resolved.",
+            "reason": "First, analyze both images. Look for fine VERTICAL STRIPES or screen bezels/moiré in the second image. Then compare the surroundings. Then check if the issue is resolved.",
             "environment_match": boolean,
             "issue_resolved": boolean,
             "valid": boolean (true ONLY if both environment_match and issue_resolved are true)
@@ -399,11 +399,15 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
         model: 'gemini-3.7-flash',
         contents: [
             `You are an elite, highly strict civic issue classifier with forensic vision capabilities. 
-             Analyze this image. You MUST detect if this is a photo of a computer/TV screen.
-             
+             Analyze this image. 
+             Perform a step-by-step visual audit:
+             1. IS THIS A PHOTO OF A SCREEN? (Look VERY closely for fine VERTICAL STRIPES, HORIZONTAL LINES, grid-like moiré patterns, screen glare, visible pixels, wave structures, or monitor bezels. If you see ANY fine vertical/horizontal lines running across the entire image, it is a photo of a screen). If YES, it is FAKE.
+             2. Is this inside a private university, college campus, or private institute? (Look for campus buildings, institute signboards). If YES, it is PRIVATE PROPERTY.
+             3. Does it show a valid issue? (road potholes, garbage, water leakage, sanitary issues, or electricity issues).
+
              Respond ONLY with a JSON object in this exact format:
              {
-               "reasoning": "First, analyze the image specifically looking for screen bezels, moiré pixel patterns, screen glare, or wave structures. Describe what you see.",
+               "reasoning": "First, analyze the image specifically looking for screen bezels, VERTICAL STRIPES, moiré pixel patterns, screen glare, or wave structures. Describe what you see in extreme detail.",
                "is_screen": boolean (true if you see any evidence of it being a screen capture/monitor),
                "is_campus": boolean (true if you see educational institute or private campus infrastructure),
                "category": "Road, Garbage, Water, Sanitary, Electricity, or Unknown",

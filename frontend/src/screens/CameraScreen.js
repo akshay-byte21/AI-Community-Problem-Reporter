@@ -1,89 +1,85 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, ActivityIndicator } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 
 const CameraScreen = ({ navigation }) => {
-  const [permission, requestPermission] = useCameraPermissions();
-  const [locationPermission, setLocationPermission] = useState(null);
   const [location, setLocation] = useState(null);
   const [addressLines, setAddressLines] = useState(['Locating...', '']);
   const [capturedImage, setCapturedImage] = useState(null);
-  const [facing, setFacing] = useState('back');
-  const [flashMode, setFlashMode] = useState('off');
-  const cameraRef = useRef(null);
+  const [isPickerActive, setIsPickerActive] = useState(false);
+  const hasMounted = useRef(false);
 
   useEffect(() => {
-    (async () => {
-      if (!permission?.granted) {
-        await requestPermission();
-      }
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      openNativeCamera();
+      fetchLocationInBackground();
+    }
+  }, []);
+
+  const fetchLocationInBackground = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
       
-      const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
-      setLocationPermission(locationStatus === 'granted');
-
-      if (locationStatus === 'granted') {
-        // Fetch location in background without awaiting it to block UI
-        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }).then(async loc => {
-          setLocation(loc);
-          try {
-            let reverseGeocode = await Location.reverseGeocodeAsync({
-              latitude: loc.coords.latitude,
-              longitude: loc.coords.longitude
-            });
-            
-            if (reverseGeocode.length > 0) {
-              const addr = reverseGeocode[0];
-              setAddressLines([
-                `${addr.name || addr.street || ''}, ${addr.city || ''}`,
-                `${addr.region || ''}, ${addr.country || ''}`
-              ].filter(Boolean));
-            }
-          } catch (e) {
-            console.warn("Location error:", e);
-          }
-        });
+      let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setLocation(loc);
+      
+      let reverseGeocode = await Location.reverseGeocodeAsync({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude
+      });
+      
+      if (reverseGeocode.length > 0) {
+        const addr = reverseGeocode[0];
+        setAddressLines([
+          `${addr.name || addr.street || ''}, ${addr.city || ''}`,
+          `${addr.region || ''}, ${addr.country || ''}`
+        ].filter(Boolean));
       }
-    })();
-  }, [permission, requestPermission]);
-
-  const toggleCameraType = () => {
-    setFacing(current => (current === 'back' ? 'front' : 'back'));
+    } catch (e) {
+      console.warn("Location error:", e);
+    }
   };
 
-  const toggleFlash = () => {
-    setFlashMode(current => (current === 'off' ? 'on' : 'off'));
-  };
+  const openNativeCamera = async () => {
+    setIsPickerActive(true);
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Camera permission is required');
+        navigation.goBack();
+        return;
+      }
 
-  const takePicture = async () => {
-    if (cameraRef.current) {
-      const photo = await cameraRef.current.takePictureAsync();
-      setCapturedImage(photo.uri);
+      let result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.5,
+      });
+
+      if (result.canceled) {
+        navigation.goBack();
+      } else {
+        setCapturedImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error(error);
+      navigation.goBack();
+    } finally {
+      setIsPickerActive(false);
     }
   };
 
   const proceedToAI = () => {
-    navigation.navigate('AIProcessing', { 
+    navigation.replace('AIProcessing', { 
       imageUri: capturedImage,
       location: location?.coords,
       address: addressLines.join('\n')
     });
   };
-
-  if (!permission || locationPermission === null) {
-    return <View style={styles.container}><ActivityIndicator color="#fff" style={{marginTop: 50}} /></View>;
-  }
-  if (!permission.granted || !locationPermission) {
-    return (
-      <View style={styles.container}>
-        <Text style={{color:'#fff', textAlign:'center', marginTop:100}}>We need your permission to show the camera and access location.</Text>
-        <TouchableOpacity onPress={requestPermission} style={{marginTop: 20, alignSelf: 'center', padding: 10, backgroundColor: '#1B8C4A', borderRadius: 8}}>
-            <Text style={{color: '#fff'}}>Grant Permission</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
 
   const currentDate = new Date();
   const dateString = currentDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -109,47 +105,27 @@ const CameraScreen = ({ navigation }) => {
        <View style={styles.watermarkRow}>
          <Ionicons name="navigate-outline" size={16} color="#E5E7EB" style={styles.watermarkIcon} />
          <Text style={styles.watermarkText}>
-           {location ? `${location.coords.latitude.toFixed(4)}┬░ N, ${location.coords.longitude.toFixed(4)}┬░ E` : 'Fetching coords...'}
+           {location ? `${location.coords.latitude.toFixed(4)}° N, ${location.coords.longitude.toFixed(4)}° E` : 'Fetching coords...'}
          </Text>
        </View>
     </View>
   );
 
+  if (isPickerActive || !capturedImage) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#1B8C4A" />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      {!capturedImage ? (
-        <CameraView style={styles.camera} facing={facing} flash={flashMode} ref={cameraRef}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconBg}>
-              <Ionicons name="close" size={24} color="#fff" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.headerIconBg} onPress={toggleFlash}>
-              <Ionicons name={flashMode === 'on' ? 'flash' : 'flash-off-outline'} size={24} color="#fff" />
-            </TouchableOpacity>
-          </View>
-          
-          <WatermarkOverlay />
-
-          <View style={styles.bottomControls}>
-            <TouchableOpacity style={styles.sideButton}>
-              <Ionicons name="image-outline" size={28} color="#fff" />
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
-              <View style={styles.captureInner} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.sideButton} onPress={toggleCameraType}>
-              <Ionicons name="camera-reverse-outline" size={28} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        </CameraView>
-      ) : (
         <View style={styles.previewContainer}>
           <Image source={{ uri: capturedImage }} style={styles.previewImage} />
           
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => setCapturedImage(null)} style={styles.headerIconBg}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconBg}>
               <Ionicons name="close" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -157,7 +133,7 @@ const CameraScreen = ({ navigation }) => {
           <WatermarkOverlay />
           
           <View style={styles.previewControls}>
-            <TouchableOpacity style={styles.retakeButton} onPress={() => setCapturedImage(null)}>
+            <TouchableOpacity style={styles.retakeButton} onPress={openNativeCamera}>
               <Text style={styles.retakeText}>Retake</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.useButton} onPress={proceedToAI}>
@@ -166,7 +142,6 @@ const CameraScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         </View>
-      )}
     </SafeAreaView>
   );
 };
@@ -176,100 +151,75 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
-  camera: {
+  loadingContainer: {
     flex: 1,
-    justifyContent: 'space-between',
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 40,
+    position: 'absolute',
+    top: 40,
+    left: 20,
+    right: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    zIndex: 10,
   },
   headerIconBg: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   watermarkContainer: {
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    position: 'absolute',
+    bottom: 120,
+    left: 20,
+    backgroundColor: 'rgba(0,0,0,0.7)',
     padding: 16,
     borderRadius: 16,
-    marginHorizontal: 20,
-    marginTop: 20,
-    alignSelf: 'flex-start',
     maxWidth: '85%',
+    zIndex: 10,
   },
   watermarkRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   watermarkIcon: {
-    marginRight: 12,
-    marginTop: 2,
+    marginRight: 10,
   },
   watermarkText: {
-    color: '#F9FAFB',
+    color: '#FFF',
     fontSize: 13,
     fontWeight: '500',
-    lineHeight: 18,
-  },
-  bottomControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 50,
-    paddingHorizontal: 40,
-    paddingTop: 20,
-  },
-  sideButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  captureButton: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
-  },
-  captureInner: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: '#fff',
   },
   previewContainer: {
     flex: 1,
-    justifyContent: 'space-between',
   },
   previewImage: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   previewControls: {
+    position: 'absolute',
+    bottom: 30,
+    left: 20,
+    right: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 24,
-    paddingBottom: 40,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    zIndex: 10,
   },
   retakeButton: {
-    paddingVertical: 14,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 25,
   },
   retakeText: {
     color: '#fff',
@@ -277,19 +227,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   useButton: {
+    backgroundColor: '#1B8C4A',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 25,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    backgroundColor: '#1B8C4A',
-    borderRadius: 12,
   },
   useText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   }
 });
 
 export default CameraScreen;
-

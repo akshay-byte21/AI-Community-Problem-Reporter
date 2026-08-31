@@ -218,7 +218,7 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
           Issue category: '${row.category}'. Description: '${row.description}'. 
 
           Perform a step-by-step visual audit:
-          1. Is the SECOND image a photo of a computer screen, monitor, TV, or laptop? (Look closely for screen bezels, moiré pixel patterns, or screen glare). If YES, the image is FAKE (environment_match: false).
+          1. Is the SECOND image a photo of a computer screen, monitor, TV, or laptop? (Look VERY closely for screen bezels, wave structures/moiré pixel patterns, or screen glare). If you see ANY wave structures or pixel grids, the image is FAKE (environment_match: false).
           2. Compare the surroundings. Look at the landmarks, buildings, trees, walls, or road patterns in the FIRST image. Does the SECOND image contain these EXACT SAME landmarks and atmosphere? If the agent uploaded an unrelated image, environment_match is false.
           3. If they match, is the civic issue fixed in the second image?
 
@@ -226,7 +226,7 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
           {
             "environment_match": boolean,
             "issue_resolved": boolean,
-            "reason": "Provide a strict, detailed explanation. If they uploaded a screen, say 'Image Rejected: You uploaded a photo of a computer screen. Please capture it live.' If the environment doesn't match, say 'Image Rejected: The surrounding landmarks and atmosphere do not match the original reported location. Please upload the correct image.'",
+            "reason": "Provide a strict, detailed explanation. If they uploaded a screen/monitor (detected wave structures), say 'Image Rejected: Screen capture detected (wave structures/pixels visible). Please capture it live in the real world.' If the environment doesn't match, say 'Image Rejected: The surrounding landmarks and atmosphere do not match the original reported location. Please upload the correct image.'",
             "valid": boolean (true ONLY if both environment_match and issue_resolved are true)
           }`
         ];
@@ -240,9 +240,9 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
             }
           });
         } else {
-           contents[0] = `You are a strict AI verification system. Analyze this image. 
+           contents[0] = `You are an elite AI verification system. Analyze this image. 
            Does it show a resolved state of a civic issue related to: '${row.category}' (Description: '${row.description}')? 
-           CRITICAL RULE: If the image is a random object (like a keyboard, monitor, indoor room) and NOT a civic environment, you MUST return valid: false.
+           CRITICAL RULE: If the image is a random object (like a keyboard, indoor room) or a photo of a monitor (visible wave structures/moiré), you MUST return valid: false.
            Return a JSON object with 'valid' (boolean) and 'reason' (string explaining why). Reply ONLY with valid JSON.`;
         }
 
@@ -255,7 +255,7 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
         });
 
         const response = await ai.models.generateContent({
-          model: 'gemini-1.5-flash',
+          model: 'gemini-1.5-pro',
           contents: contents
         });
 
@@ -396,17 +396,18 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
     const base64Data = await urlToBase64(imagePath);
 
     const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-1.5-pro',
         contents: [
-            `You are a strict civic issue classifier. Analyze this image to determine if it shows a REAL WORLD civic issue.
+            `You are an elite, highly strict civic issue classifier with forensic vision capabilities. 
+             Analyze this image to determine if it shows a REAL WORLD civic issue.
              
              Perform a step-by-step visual audit:
-             1. Is this a photo of a computer screen, monitor, TV, or laptop? (Look for screen bezels, moiré pixel patterns, or screen glare). If YES, it is FAKE.
-             2. Is this inside a private university, college campus, or private institute? (Look for campus buildings, institute signboards, or typical college infrastructure). If YES, it is PRIVATE PROPERTY.
+             1. IS THIS A PHOTO OF A SCREEN? (Look VERY closely for moiré patterns, screen glare, visible pixels, wave structures, or monitor bezels). If you see ANY wave structures or pixel grids indicating it was captured from a laptop, TV, or phone screen, it is FAKE.
+             2. Is this inside a private university, college campus, or private institute? (Look for campus buildings, institute signboards). If YES, it is PRIVATE PROPERTY.
              3. Does it show a valid issue? (road potholes, garbage, water leakage, sanitary issues, or electricity issues).
 
-             If Step 1 is YES:
-             Return {"category": "Invalid", "description": "Submission Rejected: You took a photo of a screen or monitor. You must capture the problem live in the real world.", "department": "None"}
+             If Step 1 is YES (it's a photo of a screen):
+             Return {"category": "Invalid", "description": "Submission Rejected: Screen capture detected. We detected wave structures (moiré) or screen pixels. You must capture the problem live in the real world.", "department": "None"}
              
              If Step 2 is YES:
              Return {"category": "Invalid", "description": "Submission Rejected: This location appears to be inside an educational institute or private campus. This is not government property. Please complain to your college administration.", "department": "None"}

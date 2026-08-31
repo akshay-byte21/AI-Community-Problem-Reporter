@@ -126,7 +126,7 @@ app.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Invalid email/phone or password' });
     }
 
-    const token = jwt.sign({ userId: user.id }, SECRET_KEY, { expiresIn: '24h' });
+    const token = jwt.sign({ userId: user.id }, SECRET_KEY, { expiresIn: '365d' });
     res.json({ token, userId: user.id });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -158,7 +158,7 @@ app.post('/agent-login', async (req, res) => {
     const staff = result.rows[0];
     if (!staff) return res.status(400).json({ error: 'Agent not found' });
 
-    const token = jwt.sign({ staffId: staff.id, department: staff.department }, SECRET_KEY, { expiresIn: '7d' });
+    const token = jwt.sign({ staffId: staff.id, department: staff.department }, SECRET_KEY, { expiresIn: '365d' });
     res.json({ token, staff });
   } catch (err) {
     res.status(500).json({ error: err.message });

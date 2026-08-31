@@ -126,7 +126,7 @@ app.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Invalid email/phone or password' });
     }
 
-    const token = jwt.sign({ userId: user.id }, SECRET_KEY, { expiresIn: '24h' });
+    const token = jwt.sign({ userId: user.id }, SECRET_KEY, { expiresIn: '365d' });
     res.json({ token, userId: user.id });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -158,7 +158,7 @@ app.post('/agent-login', async (req, res) => {
     const staff = result.rows[0];
     if (!staff) return res.status(400).json({ error: 'Agent not found' });
 
-    const token = jwt.sign({ staffId: staff.id, department: staff.department }, SECRET_KEY, { expiresIn: '7d' });
+    const token = jwt.sign({ staffId: staff.id, department: staff.department }, SECRET_KEY, { expiresIn: '365d' });
     res.json({ token, staff });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -220,7 +220,9 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
           Perform a step-by-step analysis:
           1. Identify the environment in the FIRST image.
           2. Identify the environment in the SECOND image.
-          3. Are they the EXACT SAME physical location? If the second image is a random object (like a keyboard, screen, or floor), the answer is NO.
+          3. Are they the EXACT SAME physical location? 
+             CRITICAL: If either image is a photo of a computer screen, monitor, TV, or laptop, you MUST return environment_match: false. It MUST be a real-world physical capture.
+             If the second image is a random object (like a keyboard, screen, or floor), the answer is NO.
           4. If they match, is the civic issue fixed in the second image?
 
           Respond ONLY with a JSON object in this exact format:
@@ -399,7 +401,7 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
     const response = await ai.models.generateContent({
         model: 'gemini-1.5-flash',
         contents: [
-            "Analyze this image to determine if it shows a civic issue related to: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, or electricity issues (e.g. fallen poles, cut wires). If it matches one of these, return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (a formal request letter of 3-4 sentences addressing the municipal authority describing the issue, providing context, and respectfully requesting action), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). If the image DOES NOT relate to any of these civic issues, return ONLY this JSON: {\"category\": \"Invalid\", \"description\": \"Invalid image: Does not match civic issues\", \"department\": \"None\"}. Return ONLY valid JSON, nothing else.",
+            "You are a strict civic issue classifier. Analyze this image to determine if it shows a REAL WORLD civic issue related to: road potholes, garbage, water leakage, sanitary issues, or electricity issues. CRITICAL RULE: If this image is a photo of a computer screen, monitor, TV, or digital display, it is FAKE. You MUST reject it. If the image is valid and shows a real-world issue, return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (a formal request letter of 3-4 sentences addressing the municipal authority describing the issue), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). If the image is a screen, a monitor, or DOES NOT relate to civic issues, return ONLY this JSON: {\"category\": \"Invalid\", \"description\": \"Invalid image: Please take a photo of the actual physical environment, not a computer screen.\", \"department\": \"None\"}. Return ONLY valid JSON.",
             {
                 inlineData: {
                     data: base64Data,

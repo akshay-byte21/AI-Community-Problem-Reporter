@@ -224,9 +224,9 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
 
           Respond ONLY with a JSON object in this exact format:
           {
+            "reason": "First, analyze both images. Look for screen bezels/moiré in the second image. Then compare the surroundings. Then check if the issue is resolved.",
             "environment_match": boolean,
             "issue_resolved": boolean,
-            "reason": "Provide a strict, detailed explanation. If they uploaded a screen/monitor (detected wave structures), say 'Image Rejected: Screen capture detected (wave structures/pixels visible). Please capture it live in the real world.' If the environment doesn't match, say 'Image Rejected: The surrounding landmarks and atmosphere do not match the original reported location. Please upload the correct image.'",
             "valid": boolean (true ONLY if both environment_match and issue_resolved are true)
           }`
         ];
@@ -399,23 +399,18 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
         model: 'gemini-1.5-pro',
         contents: [
             `You are an elite, highly strict civic issue classifier with forensic vision capabilities. 
-             Analyze this image to determine if it shows a REAL WORLD civic issue.
+             Analyze this image. You MUST detect if this is a photo of a computer/TV screen.
              
-             Perform a step-by-step visual audit:
-             1. IS THIS A PHOTO OF A SCREEN? (Look VERY closely for moiré patterns, screen glare, visible pixels, wave structures, or monitor bezels). If you see ANY wave structures or pixel grids indicating it was captured from a laptop, TV, or phone screen, it is FAKE.
-             2. Is this inside a private university, college campus, or private institute? (Look for campus buildings, institute signboards). If YES, it is PRIVATE PROPERTY.
-             3. Does it show a valid issue? (road potholes, garbage, water leakage, sanitary issues, or electricity issues).
-
-             If Step 1 is YES (it's a photo of a screen):
-             Return {"category": "Invalid", "description": "Submission Rejected: Screen capture detected. We detected wave structures (moiré) or screen pixels. You must capture the problem live in the real world.", "department": "None"}
-             
-             If Step 2 is YES:
-             Return {"category": "Invalid", "description": "Submission Rejected: This location appears to be inside an educational institute or private campus. This is not government property. Please complain to your college administration.", "department": "None"}
-             
-             If valid:
-             Return {"category": "[Category]", "description": "[A formal request letter to the municipal authority]", "department": "[Assigned Department]"}
-             
-             Return ONLY valid JSON.`,
+             Respond ONLY with a JSON object in this exact format:
+             {
+               "reasoning": "First, analyze the image specifically looking for screen bezels, moiré pixel patterns, screen glare, or wave structures. Describe what you see.",
+               "is_screen": boolean (true if you see any evidence of it being a screen capture/monitor),
+               "is_campus": boolean (true if you see educational institute or private campus infrastructure),
+               "category": "Road, Garbage, Water, Sanitary, Electricity, or Unknown",
+               "department": "Municipal Corporation (Road Maintenance), etc.",
+               "description": "A 3-4 sentence formal request letter describing the issue."
+             }`
+            ,
             {
                 inlineData: {
                     data: base64Data,
@@ -427,9 +422,35 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
     
     const text = response.text;
     const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const data = JSON.parse(jsonStr);
+    const rawData = JSON.parse(jsonStr);
     
-    res.json(data);
+    let finalData = {
+      category: rawData.category,
+      department: rawData.department,
+      description: rawData.description
+    };
+
+    if (rawData.is_screen) {
+      finalData = {
+        category: "Invalid",
+        department: "None",
+        description: "Submission Rejected: Screen capture detected. We detected wave structures (moiré) or screen pixels. You must capture the problem live in the real world."
+      };
+    } else if (rawData.is_campus) {
+      finalData = {
+        category: "Invalid",
+        department: "None",
+        description: "Submission Rejected: This location appears to be inside an educational institute or private campus. This is not government property. Please complain to your college administration."
+      };
+    } else if (!rawData.category || rawData.category === "Unknown") {
+      finalData = {
+        category: "Invalid",
+        department: "None",
+        description: "Invalid image: This does not appear to be a supported civic issue (Road, Garbage, Water, Sanitary, Electricity)."
+      };
+    }
+
+    res.json(finalData);
   } catch (err) {
     console.error("Gemini AI Error:", err);
     res.json({

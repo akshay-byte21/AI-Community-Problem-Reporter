@@ -56,7 +56,7 @@ const ResolutionScreen = ({ route, navigation }) => {
       if (report.lat && report.lng) {
         const dist = getDistance(loc.coords.latitude, loc.coords.longitude, report.lat, report.lng);
         setDistance(dist);
-        setIsNear(dist <= 500); // 500 meters threshold for better accuracy tolerance
+        setIsNear(dist <= 20); // 20 meters threshold for high accuracy
       } else {
         // If report has no lat/lng, we can't verify. Just allow it for testing purposes.
         setIsNear(true); 
@@ -176,7 +176,7 @@ const ResolutionScreen = ({ route, navigation }) => {
                   : 'Report location unknown (Bypassed).'}
               </Text>
               {!isNear && distance !== null && (
-                <Text style={styles.errorText}>You must be within 200m to take a photo.</Text>
+                <Text style={styles.errorText}>Out of range. You must be within 20 meters.</Text>
               )}
             </View>
           )}

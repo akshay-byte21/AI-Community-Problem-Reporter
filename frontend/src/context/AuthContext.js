@@ -67,8 +67,8 @@ export const AuthProvider = ({ children }) => {
   const isLoggedIn = async () => {
     try {
       setIsLoading(true);
-      // Intentionally NOT loading token from AsyncStorage so app ALWAYS starts at Login screen
-      setUserToken(null);
+      let token = await AsyncStorage.getItem('userToken');
+      setUserToken(token);
       setIsLoading(false);
     } catch (e) {
       console.error(e);

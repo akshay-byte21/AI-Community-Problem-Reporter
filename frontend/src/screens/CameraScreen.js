@@ -25,7 +25,7 @@ const CameraScreen = ({ navigation }) => {
 
       if (locationStatus === 'granted') {
         try {
-          let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
           setLocation(loc);
           
           let reverseGeocode = await Location.reverseGeocodeAsync({

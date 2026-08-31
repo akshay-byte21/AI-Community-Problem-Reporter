@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator, ScrollView, Modal, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator, ScrollView, Modal, SafeAreaView, Linking } from 'react-native';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
 
 // Haversine formula to calculate distance between two lat/lng coordinates in meters
 const getDistance = (lat1, lon1, lat2, lon2) => {
@@ -32,6 +33,13 @@ const ResolutionScreen = ({ route, navigation }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [checkingLocation, setCheckingLocation] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
+
+  const openMap = () => {
+    if (report.lat && report.lng) {
+      const url = `https://www.google.com/maps/search/?api=1&query=${report.lat},${report.lng}`;
+      Linking.openURL(url);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -120,6 +128,13 @@ const ResolutionScreen = ({ route, navigation }) => {
         
         <Text style={styles.label}>Address:</Text>
         <Text style={styles.value}>{report.address}</Text>
+
+        {report.lat && report.lng && (
+          <TouchableOpacity style={styles.mapButton} onPress={openMap}>
+            <Ionicons name="map-outline" size={18} color="#fff" />
+            <Text style={styles.mapButtonText}>Get Precise Directions</Text>
+          </TouchableOpacity>
+        )}
 
         {report.image_url && (
           <TouchableOpacity onPress={() => setSelectedImage({ uri: report.image_url.startsWith('http') ? report.image_url : `${API_URL}${report.image_url}` })}>
@@ -216,6 +231,21 @@ const styles = StyleSheet.create({
   reportImage: { width: '100%', height: 200, borderRadius: 8, marginTop: 10, backgroundColor: '#eee' },
   locationBox: { padding: 15, backgroundColor: '#e5e7eb', borderRadius: 8, marginBottom: 20 },
   locationText: { color: '#374151', textAlign: 'center', fontWeight: 'bold' },
+  mapButton: {
+    backgroundColor: '#1B8C4A',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  mapButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
   errorText: { color: '#ef4444', textAlign: 'center', marginTop: 5 },
   preview: { width: '100%', height: 300, borderRadius: 10, marginBottom: 20 },
   button: { backgroundColor: '#10b981', padding: 15, borderRadius: 8, alignItems: 'center' },

@@ -217,19 +217,16 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
           SECOND image: The 'After' state (uploaded by the worker as proof of resolution).
           Issue category: '${row.category}'. Description: '${row.description}'. 
 
-          Perform a step-by-step analysis:
-          1. Identify the environment in the FIRST image.
-          2. Identify the environment in the SECOND image.
-          3. Are they the EXACT SAME physical location? 
-             CRITICAL: If either image is a photo of a computer screen, monitor, TV, or laptop, you MUST return environment_match: false. It MUST be a real-world physical capture.
-             If the second image is a random object (like a keyboard, screen, or floor), the answer is NO.
-          4. If they match, is the civic issue fixed in the second image?
+          Perform a step-by-step visual audit:
+          1. Is the SECOND image a photo of a computer screen, monitor, TV, or laptop? (Look closely for screen bezels, moiré pixel patterns, or screen glare). If YES, the image is FAKE (environment_match: false).
+          2. Compare the surroundings. Look at the landmarks, buildings, trees, walls, or road patterns in the FIRST image. Does the SECOND image contain these EXACT SAME landmarks and atmosphere? If the agent uploaded an unrelated image, environment_match is false.
+          3. If they match, is the civic issue fixed in the second image?
 
           Respond ONLY with a JSON object in this exact format:
           {
             "environment_match": boolean,
             "issue_resolved": boolean,
-            "reason": "your step-by-step reasoning",
+            "reason": "Provide a strict, detailed explanation. If they uploaded a screen, say 'Image Rejected: You uploaded a photo of a computer screen. Please capture it live.' If the environment doesn't match, say 'Image Rejected: The surrounding landmarks and atmosphere do not match the original reported location. Please upload the correct image.'",
             "valid": boolean (true ONLY if both environment_match and issue_resolved are true)
           }`
         ];
@@ -401,7 +398,23 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
     const response = await ai.models.generateContent({
         model: 'gemini-1.5-flash',
         contents: [
-            "You are a strict civic issue classifier. Analyze this image to determine if it shows a REAL WORLD civic issue related to: road potholes, garbage, water leakage, sanitary issues, or electricity issues. CRITICAL RULE: If this image is a photo of a computer screen, monitor, TV, or digital display, it is FAKE. You MUST reject it. If the image is valid and shows a real-world issue, return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (a formal request letter of 3-4 sentences addressing the municipal authority describing the issue), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). If the image is a screen, a monitor, or DOES NOT relate to civic issues, return ONLY this JSON: {\"category\": \"Invalid\", \"description\": \"Invalid image: Please take a photo of the actual physical environment, not a computer screen.\", \"department\": \"None\"}. Return ONLY valid JSON.",
+            `You are a strict civic issue classifier. Analyze this image to determine if it shows a REAL WORLD civic issue.
+             
+             Perform a step-by-step visual audit:
+             1. Is this a photo of a computer screen, monitor, TV, or laptop? (Look for screen bezels, moiré pixel patterns, or screen glare). If YES, it is FAKE.
+             2. Is this inside a private university, college campus, or private institute? (Look for campus buildings, institute signboards, or typical college infrastructure). If YES, it is PRIVATE PROPERTY.
+             3. Does it show a valid issue? (road potholes, garbage, water leakage, sanitary issues, or electricity issues).
+
+             If Step 1 is YES:
+             Return {"category": "Invalid", "description": "Submission Rejected: You took a photo of a screen or monitor. You must capture the problem live in the real world.", "department": "None"}
+             
+             If Step 2 is YES:
+             Return {"category": "Invalid", "description": "Submission Rejected: This location appears to be inside an educational institute or private campus. This is not government property. Please complain to your college administration.", "department": "None"}
+             
+             If valid:
+             Return {"category": "[Category]", "description": "[A formal request letter to the municipal authority]", "department": "[Assigned Department]"}
+             
+             Return ONLY valid JSON.`,
             {
                 inlineData: {
                     data: base64Data,

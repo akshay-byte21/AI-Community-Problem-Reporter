@@ -96,9 +96,9 @@ const AIProcessingScreen = ({ navigation, route }) => {
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
           <Ionicons name="close-circle" size={80} color="#EF4444" style={{ marginBottom: 20 }} />
-          <Text style={styles.title}>Image Not Recognized</Text>
+          <Text style={styles.title}>Image Rejected</Text>
           <Text style={styles.subtitle}>
-            This image does not match our supported civic issues.
+            {apiResult?.description || "This image does not match our supported civic issues."}
           </Text>
           <View style={styles.invalidInfoContainer}>
              <Text style={styles.invalidInfoText}>We only accept reports for:</Text>

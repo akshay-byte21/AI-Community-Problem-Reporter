@@ -152,7 +152,7 @@ const ResolutionScreen = ({ route, navigation }) => {
           </View>
           {report.resolution_image_url && (
             <View style={{ marginTop: 20 }}>
-              <Text style={styles.title}>Solution validation</Text>
+              <Text style={styles.title}>Solution Validation</Text>
               <TouchableOpacity onPress={() => setSelectedImage({ uri: report.resolution_image_url.startsWith('http') ? report.resolution_image_url : `${API_URL}${report.resolution_image_url}` })}>
                 <Image 
                   source={{ uri: report.resolution_image_url.startsWith('http') ? report.resolution_image_url : `${API_URL}${report.resolution_image_url}` }} 
@@ -164,7 +164,7 @@ const ResolutionScreen = ({ route, navigation }) => {
         </>
       ) : (
         <>
-          <Text style={styles.title}>Resolution Proof</Text>
+          <Text style={styles.title}>Solution Validation</Text>
           
           {checkingLocation ? (
             <ActivityIndicator size="large" color="#10b981" />
@@ -185,7 +185,7 @@ const ResolutionScreen = ({ route, navigation }) => {
             <>
               <Image source={{ uri: imageUri }} style={styles.preview} />
               <TouchableOpacity style={styles.button} onPress={uploadResolution} disabled={isUploading}>
-                {isUploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Submit Resolution</Text>}
+                {isUploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Submit Solution Validation</Text>}
               </TouchableOpacity>
               <TouchableOpacity style={[styles.button, { backgroundColor: '#6b7280', marginTop: 10 }]} onPress={() => setImageUri(null)} disabled={isUploading}>
                 <Text style={styles.buttonText}>Retake Photo</Text>
@@ -197,7 +197,7 @@ const ResolutionScreen = ({ route, navigation }) => {
               onPress={takePhoto}
               disabled={!isNear || checkingLocation}
             >
-              <Text style={styles.buttonText}>Capture Resolution Photo</Text>
+              <Text style={styles.buttonText}>Capture Solution Validation</Text>
             </TouchableOpacity>
           )}
         </>

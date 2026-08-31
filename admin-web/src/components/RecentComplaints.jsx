@@ -194,7 +194,7 @@ const RecentComplaints = ({ reports, API_URL }) => {
             {/* After Image */}
             {selectedImage.resolution_image_url && (
               <div style={{flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
-                <h3 style={{color: 'white', marginBottom: '10px'}}>Agent Resolution</h3>
+                <h3 style={{color: 'white', marginBottom: '10px'}}>Solution Validation</h3>
                 <img 
                   src={`${API_URL}${selectedImage.resolution_image_url}`} 
                   alt="Resolved Issue" 

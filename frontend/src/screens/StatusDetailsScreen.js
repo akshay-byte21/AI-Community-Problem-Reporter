@@ -143,7 +143,7 @@ const StatusDetailsScreen = ({ navigation, route }) => {
 
         {report.resolution_image_url && (
           <View style={[styles.uploadedImageContainer, { borderColor: '#10B981', borderWidth: 2, height: 'auto', paddingBottom: 10 }]}>
-            <Text style={{ textAlign: 'center', padding: 10, fontWeight: 'bold', color: '#10B981' }}>Solution validation</Text>
+            <Text style={{ textAlign: 'center', padding: 10, fontWeight: 'bold', color: '#10B981' }}>Solution Validation</Text>
             <TouchableOpacity onPress={() => setSelectedImage({ uri: report.resolution_image_url.startsWith('http') ? report.resolution_image_url : `${API_URL}${report.resolution_image_url}` })}>
               <Image 
                 source={{ uri: report.resolution_image_url.startsWith('http') ? report.resolution_image_url : `${API_URL}${report.resolution_image_url}` }} 

@@ -61,6 +61,11 @@ async function initDB() {
       )
     `);
 
+    // Enable Row Level Security to fix Supabase security alerts
+    await client.query(`ALTER TABLE users ENABLE ROW LEVEL SECURITY;`);
+    await client.query(`ALTER TABLE staff ENABLE ROW LEVEL SECURITY;`);
+    await client.query(`ALTER TABLE reports ENABLE ROW LEVEL SECURITY;`);
+
     // Seed Staff Table if empty
     const res = await client.query("SELECT COUNT(*) FROM staff");
     if (parseInt(res.rows[0].count) === 0) {

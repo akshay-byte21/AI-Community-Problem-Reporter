@@ -36,7 +36,7 @@ const StatusDetailsScreen = ({ navigation, route }) => {
   const getActualOrExpected = (dbDate, fallbackDate, stepName) => {
     const status = getStepStatus(stepName);
     if (status === 'completed' || status === 'current') {
-      return dbDate ? `${formatDate(new Date(dbDate))}, ${formatTime(new Date(dbDate))}` : formatDate(fallbackDate);
+      return dbDate ? `${formatDate(new Date(dbDate))}, ${formatTime(new Date(dbDate))}` : 'Status updated';
     }
     return `Expected: ${formatDate(fallbackDate)}`;
   };

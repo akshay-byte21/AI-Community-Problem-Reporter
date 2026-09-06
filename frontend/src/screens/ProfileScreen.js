@@ -123,6 +123,13 @@ const ProfileScreen = ({ navigation }) => {
           )}
         </TouchableOpacity>
         
+        <TouchableOpacity 
+          style={[styles.saveButton, { backgroundColor: '#F59E0B', marginTop: 16 }]} 
+          onPress={() => navigation.navigate('Rewards')}
+        >
+          <Text style={styles.saveButtonText}>Redeem Rewards 🎁</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={[styles.logoutButton, {marginTop: 24, marginBottom: 10}]} onPress={() => navigation.navigate('ChangePassword')}>
           <Text style={[styles.logoutButtonText, {color: '#4B5563'}]}>Change Password</Text>
         </TouchableOpacity>

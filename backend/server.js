@@ -402,6 +402,36 @@ app.get('/user', authenticateToken, async (req, res) => {
   }
 });
 
+// Claim a reward (deduct points)
+app.post('/user/claim-reward', authenticateToken, async (req, res) => {
+  const { cost, rewardName } = req.body;
+  try {
+    // Start transaction
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await client.query('SELECT points FROM users WHERE id = $1 FOR UPDATE', [req.user.userId]);
+      const currentPoints = result.rows[0].points;
+      
+      if (currentPoints < cost) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Not enough points to claim this reward.' });
+      }
+      
+      await client.query('UPDATE users SET points = points - $1 WHERE id = $2', [cost, req.user.userId]);
+      await client.query('COMMIT');
+      res.json({ message: `Successfully claimed ${rewardName}!` });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Update user profile
 app.put('/user', authenticateToken, async (req, res) => {
   const { name } = req.body;

@@ -44,6 +44,37 @@ async function urlToBase64(url) {
   return Buffer.from(buffer).toString('base64');
 }
 
+// Helper function to send Expo Push Notification
+async function sendPushNotification(userId, title, body) {
+  try {
+    const result = await db.query('SELECT push_token FROM users WHERE id = $1', [userId]);
+    if (result.rows.length === 0) return;
+    const pushToken = result.rows[0].push_token;
+    
+    if (pushToken && pushToken.startsWith('ExponentPushToken')) {
+      const message = {
+        to: pushToken,
+        sound: 'default',
+        title: title,
+        body: body,
+      };
+
+      await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Accept-encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(message),
+      });
+      console.log(`Sent push notification to user ${userId}`);
+    }
+  } catch (err) {
+    console.error('Error sending push notification:', err);
+  }
+}
+
 // Send OTP Route
 app.post('/send-otp', (req, res) => {
   const { identifier } = req.body;
@@ -276,6 +307,13 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
       `UPDATE reports SET status = 'Pending Verification', resolution_image_url = $1, completed_at = CURRENT_TIMESTAMP WHERE id = $2`,
       [imageUrl, reportId]
     );
+    
+    // Fetch user_id to send notification
+    const userRes = await db.query('SELECT user_id FROM reports WHERE id = $1', [reportId]);
+    if (userRes.rows.length > 0) {
+      sendPushNotification(userRes.rows[0].user_id, 'Issue Repaired! 🛠️', 'Your reported issue has been fixed by the agent. Open the app to verify it and claim your +50 Civic Points!');
+    }
+
     res.json({ message: 'Report resolved, pending user verification', imageUrl: imageUrl });
   } catch (err) {
     console.error(err);
@@ -355,7 +393,7 @@ app.get('/reports', authenticateToken, async (req, res) => {
 // Get user profile
 app.get('/user', authenticateToken, async (req, res) => {
   try {
-    const result = await db.query(`SELECT id, identifier, name FROM users WHERE id = $1`, [req.user.userId]);
+    const result = await db.query(`SELECT id, identifier, name, points FROM users WHERE id = $1`, [req.user.userId]);
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json(user);
@@ -370,6 +408,31 @@ app.put('/user', authenticateToken, async (req, res) => {
   try {
     await db.query(`UPDATE users SET name = $1 WHERE id = $2`, [name, req.user.userId]);
     res.json({ message: 'Profile updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update push token
+app.put('/user/push-token', authenticateToken, async (req, res) => {
+  const { pushToken } = req.body;
+  try {
+    await db.query(`UPDATE users SET push_token = $1 WHERE id = $2`, [pushToken, req.user.userId]);
+    res.json({ message: 'Push token registered' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get public reports for map
+app.get('/reports/public', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT id, category, department, lat, lng, status, created_at
+      FROM reports
+      WHERE status != 'Solved' AND lat IS NOT NULL AND lng IS NOT NULL
+    `);
+    res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -429,6 +492,34 @@ app.post('/reports', authenticateToken, upload.single('image'), async (req, res)
   const userId = req.user.userId;
 
   try {
+    // Geo-fence Deduplication Check (50 meters)
+    if (lat && lng) {
+      const radiusKm = 0.05; // 50 meters
+      const query = `
+        SELECT r.id, u.name 
+        FROM reports r
+        JOIN users u ON r.user_id = u.id
+        WHERE r.status != 'Solved' 
+          AND r.category = $1
+          AND r.lat IS NOT NULL AND r.lng IS NOT NULL
+          AND (
+            6371 * acos(
+              cos(radians($2::float)) * cos(radians(r.lat::float)) *
+              cos(radians(r.lng::float) - radians($3::float)) +
+              sin(radians($2::float)) * sin(radians(r.lat::float))
+            )
+          ) < $4
+        LIMIT 1
+      `;
+      const duplicateRes = await db.query(query, [category, lat, lng, radiusKm]);
+      if (duplicateRes.rows.length > 0) {
+        const existingUserName = duplicateRes.rows[0].name || 'another user';
+        return res.status(409).json({ 
+          error: `A ${category} complaint has already been registered near this exact location by ${existingUserName}.` 
+        });
+      }
+    }
+
     const result = await db.query(
       `INSERT INTO reports (user_id, category, description, department, lat, lng, address, image_url, assigned_staff_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL) RETURNING id`,
       [userId, category, description, department, lat, lng, address, imageUrl]
@@ -446,6 +537,11 @@ app.put('/reports/:id/complete', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(`UPDATE reports SET status = 'Solved', solved_at = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = $2`, [reportId, userId]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Report not found or not authorized' });
+    
+    // Add 50 civic points
+    await db.query(`UPDATE users SET points = points + 50 WHERE id = $1`, [userId]);
+    sendPushNotification(userId, 'Issue Solved! 🎉', 'You earned +50 Civic Points for keeping your community safe.');
+
     res.json({ message: 'Report marked as completed successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });

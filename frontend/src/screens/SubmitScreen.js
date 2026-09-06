@@ -40,7 +40,14 @@ const SubmitScreen = ({ navigation, route }) => {
     } catch (e) {
       console.error(e);
       setIsSubmitting(false);
-      Alert.alert('Error', 'Failed to submit complaint');
+      
+      if (e.response && e.response.status === 409) {
+        Alert.alert('Already Reported 📍', e.response.data.error, [
+          { text: 'OK', onPress: () => navigation.popToTop() }
+        ]);
+      } else {
+        Alert.alert('Error', 'Failed to submit complaint');
+      }
     }
   };
 

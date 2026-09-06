@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
 import HomeScreen from '../screens/HomeScreen';
 import ReportsScreen from '../screens/ReportsScreen';
+import MapScreen from '../screens/MapScreen';
 import TrackScreen from '../screens/TrackScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
@@ -65,10 +66,10 @@ const HomeTabs = () => {
         }}
       />
       <Tab.Screen 
-        name="Reports" 
-        component={ReportsScreen} 
+        name="Map" 
+        component={MapScreen} 
         options={{
-          tabBarIcon: ({color}) => (<Icon name="document-text-outline" size={24} color={color} />)
+          tabBarIcon: ({color}) => (<Icon name="map-outline" size={24} color={color} />)
         }}
       />
       

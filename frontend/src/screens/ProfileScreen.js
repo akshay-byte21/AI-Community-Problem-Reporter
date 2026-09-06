@@ -8,6 +8,7 @@ const ProfileScreen = ({ navigation }) => {
   const { userToken, API_URL, logout } = useContext(AuthContext);
   const [name, setName] = useState('');
   const [identifier, setIdentifier] = useState('');
+  const [points, setPoints] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -22,6 +23,7 @@ const ProfileScreen = ({ navigation }) => {
       });
       setName(res.data.name || '');
       setIdentifier(res.data.identifier || '');
+      setPoints(res.data.points || 0);
     } catch (e) {
       console.error(e);
       Alert.alert('Error', 'Failed to load profile details.');
@@ -76,6 +78,10 @@ const ProfileScreen = ({ navigation }) => {
         <View style={styles.profileAvatarContainer}>
           <View style={styles.avatar}>
             <Ionicons name="person" size={60} color="#fff" />
+          </View>
+          <View style={{marginTop: 15, backgroundColor: '#FEF3C7', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, flexDirection: 'row', alignItems: 'center'}}>
+            <Ionicons name="star" size={16} color="#F59E0B" style={{marginRight: 4}} />
+            <Text style={{color: '#D97706', fontWeight: 'bold'}}>{points} Civic Points</Text>
           </View>
         </View>
 

@@ -26,6 +26,10 @@ async function initDB() {
       )
     `);
 
+    // Add new columns if they don't exist
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS push_token TEXT;`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0;`);
+
     // Create Staff Table
     await client.query(`
       CREATE TABLE IF NOT EXISTS staff (

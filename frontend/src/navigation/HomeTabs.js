@@ -46,16 +46,13 @@ const HomeTabs = () => {
         headerShown: false,
         tabBarShowLabel: true,
         tabBarStyle: {
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          elevation: 0,
+          elevation: 5,
           backgroundColor: '#ffffff',
           height: 70,
           paddingBottom: 10,
+          paddingTop: 10
         },
-        tabBarActiveTintColor: '#00aa00',
+        tabBarActiveTintColor: '#1B8C4A',
       }}
     >
       <Tab.Screen 

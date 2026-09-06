@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { View, StyleSheet, ActivityIndicator, Alert, SafeAreaView, Text } from 'react-native';
-import MapView, { Marker, Callout } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
@@ -10,6 +10,7 @@ const MapScreen = () => {
   const [reports, setReports] = useState([]);
   const [location, setLocation] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [htmlContent, setHtmlContent] = useState('');
 
   useEffect(() => {
     fetchInitialData();
@@ -18,71 +19,109 @@ const MapScreen = () => {
   const fetchInitialData = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({});
-        setLocation({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        });
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Allow location access to see your area.');
+        return;
       }
       
+      const loc = await Location.getCurrentPositionAsync({});
+      setLocation(loc.coords);
+
       const res = await axios.get(`${API_URL}/reports/public`);
-      setReports(res.data);
+      setReports(res.data.reports || []);
     } catch (e) {
-      console.warn('Error fetching map data:', e);
-      Alert.alert('Notice', 'Could not load nearby issues.');
+      console.error(e);
+      Alert.alert('Error', 'Failed to load map data');
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
+  useEffect(() => {
+    if (location && reports) {
+      generateMapHtml();
+    }
+  }, [location, reports]);
+
+  const generateMapHtml = () => {
+    const lat = location.latitude;
+    const lng = location.longitude;
+
+    const markersHtml = reports.map(r => {
+      if (!r.lat || !r.lng) return '';
+      let color = 'blue';
+      if (r.status === 'Completed' || r.status === 'Solved') color = 'green';
+      if (r.status === 'In Progress') color = 'orange';
+
+      // Use raw text for popup
+      const popupText = `<b>${r.category}</b><br/>${r.address || ''}<br/><i>${r.status || 'Pending'}</i>`;
+      return `
+        L.circleMarker([${r.lat}, ${r.lng}], {
+          color: '${color}',
+          fillColor: '${color}',
+          fillOpacity: 0.8,
+          radius: 8
+        }).bindPopup('${popupText}').addTo(map);
+      `;
+    }).join('\n');
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+          <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+          <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+          <style>
+              body { padding: 0; margin: 0; }
+              html, body, #map { height: 100%; width: 100%; }
+          </style>
+      </head>
+      <body>
+          <div id="map"></div>
+          <script>
+              var map = L.map('map').setView([${lat}, ${lng}], 14);
+              L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                  attribution: '&copy; OpenStreetMap contributors'
+              }).addTo(map);
+              
+              // Add user location
+              L.circleMarker([${lat}, ${lng}], {
+                color: 'dodgerblue',
+                fillColor: 'dodgerblue',
+                fillOpacity: 1,
+                radius: 6,
+                weight: 2
+              }).bindPopup('<b>You are here</b>').addTo(map);
+
+              ${markersHtml}
+          </script>
+      </body>
+      </html>
+    `;
+    setHtmlContent(html);
+  };
+
+  if (loading || !htmlContent) {
     return (
-      <View style={styles.centered}>
+      <SafeAreaView style={styles.loaderContainer}>
         <ActivityIndicator size="large" color="#1B8C4A" />
-      </View>
+        <Text style={{marginTop: 10}}>Loading Map...</Text>
+      </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Nearby Issues</Text>
+        <Text style={styles.headerTitle}>Civic Issues Map</Text>
       </View>
-      <MapView 
-        style={styles.map} 
-        initialRegion={location || {
-          latitude: 12.9716, // Default to generic fallback
-          longitude: 77.5946,
-          latitudeDelta: 0.1,
-          longitudeDelta: 0.1,
-        }}
-        showsUserLocation={true}
-      >
-        {reports.map((report) => {
-          let pinColor = '#EF4444'; // Red for pending/unassigned
-          if (report.status === 'In Progress') pinColor = '#F59E0B'; // Orange
-          if (report.status === 'Pending Verification') pinColor = '#3B82F6'; // Blue
-
-          return (
-            <Marker
-              key={report.id}
-              coordinate={{ latitude: report.lat, longitude: report.lng }}
-              pinColor={pinColor}
-            >
-              <Callout>
-                <View style={styles.callout}>
-                  <Text style={styles.calloutTitle}>{report.category}</Text>
-                  <Text style={styles.calloutDesc}>{report.department}</Text>
-                  <Text style={[styles.calloutStatus, { color: pinColor }]}>{report.status}</Text>
-                </View>
-              </Callout>
-            </Marker>
-          );
-        })}
-      </MapView>
+      <WebView 
+        source={{ html: htmlContent }} 
+        style={styles.map}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+      />
     </SafeAreaView>
   );
 };
@@ -90,46 +129,28 @@ const MapScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#fff'
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff'
   },
   header: {
-    padding: 16,
+    paddingVertical: 15,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-    alignItems: 'center',
-    zIndex: 1,
+    borderBottomColor: '#eee',
+    alignItems: 'center'
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#333'
   },
   map: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center'
-  },
-  callout: {
-    padding: 5,
-    minWidth: 150,
-  },
-  calloutTitle: {
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  calloutDesc: {
-    fontSize: 12,
-    color: '#4B5563',
-    marginBottom: 4,
-  },
-  calloutStatus: {
-    fontSize: 12,
-    fontWeight: '600',
+    flex: 1
   }
 });
 

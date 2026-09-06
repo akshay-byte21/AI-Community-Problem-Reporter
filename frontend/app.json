@@ -25,6 +25,22 @@
         "projectId": "001d1fd2-3c23-4844-87eb-5d4c0b80a09e"
       }
     },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow this app to use your location to report civic issues."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow this app to use your camera to take photos of civic issues."
+        }
+      ],
+      "expo-image-picker",
+      "expo-notifications"
+    ],
     "owner": "akshay_ganesh"
   }
 }

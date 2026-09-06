@@ -209,6 +209,17 @@ function authenticateAgent(req, res, next) {
   });
 }
 
+// Update agent push token
+app.put('/agent/push-token', authenticateAgent, async (req, res) => {
+  const { pushToken } = req.body;
+  try {
+    await db.query(`UPDATE staff SET push_token = $1 WHERE id = $2`, [pushToken, req.agent.staffId]);
+    res.json({ message: 'Push token updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get assigned reports for agent
 app.get('/agent/reports', authenticateAgent, async (req, res) => {
   try {
@@ -356,8 +367,15 @@ app.post('/admin/reports/:id/assign', async (req, res) => {
   if (!staff_id) return res.status(400).json({ error: 'staff_id required' });
 
   try {
-    const result = await db.query(`UPDATE reports SET assigned_staff_id = $1, status = 'In Progress', progress_at = CURRENT_TIMESTAMP WHERE id = $2`, [staff_id, id]);
+    const result = await db.query(`UPDATE reports SET assigned_staff_id = $1, status = 'In Progress', progress_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING category, address`, [staff_id, id]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Report not found' });
+    
+    // Notify the agent
+    const staffRes = await db.query(`SELECT push_token FROM staff WHERE id = $1`, [staff_id]);
+    if (staffRes.rows.length > 0 && staffRes.rows[0].push_token) {
+      await sendPushNotification(staffRes.rows[0].push_token, 'New Assignment 📋', `You have been assigned to a ${result.rows[0].category} issue at ${result.rows[0].address}`);
+    }
+    
     res.json({ message: 'Staff assigned successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });

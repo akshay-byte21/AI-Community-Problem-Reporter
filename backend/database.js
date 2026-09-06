@@ -39,6 +39,9 @@ async function initDB() {
         phone TEXT
       )
     `);
+    
+    // Add push_token to staff if not exists
+    await client.query(`ALTER TABLE staff ADD COLUMN IF NOT EXISTS push_token TEXT;`);
 
     // Create Reports Table
     await client.query(`

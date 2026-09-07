@@ -63,10 +63,10 @@ const HomeTabs = () => {
         }}
       />
       <Tab.Screen 
-        name="Map" 
-        component={MapScreen} 
+        name="Reports" 
+        component={ReportsScreen} 
         options={{
-          tabBarIcon: ({color}) => (<Icon name="map-outline" size={24} color={color} />)
+          tabBarIcon: ({color}) => (<Icon name="list-outline" size={24} color={color} />)
         }}
       />
       

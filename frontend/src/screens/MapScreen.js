@@ -24,7 +24,17 @@ const MapScreen = () => {
         return;
       }
       
-      const loc = await Location.getCurrentPositionAsync({});
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!servicesEnabled) {
+        Alert.alert('Location Disabled', 'Please enable GPS/Location services on your device to view the map.');
+        setLoading(false);
+        return;
+      }
+
+      let loc = await Location.getLastKnownPositionAsync({});
+      if (!loc) {
+        loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      }
       setLocation(loc.coords);
 
       const res = await axios.get(`${API_URL}/reports/public`);

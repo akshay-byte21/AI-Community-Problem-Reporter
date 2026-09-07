@@ -45,13 +45,28 @@ const CameraScreen = ({ navigation }) => {
       setIsLocating(true);
       setStatusMessage('Fetching accurate GPS location...');
       
-      let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!servicesEnabled) {
+        alert('Please enable GPS/Location services on your device.');
+        navigation.goBack();
+        return;
+      }
+
+      let loc = await Location.getLastKnownPositionAsync({});
+      if (!loc) {
+        loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      }
       
       setStatusMessage('Resolving street address...');
-      let reverseGeocode = await Location.reverseGeocodeAsync({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude
-      });
+      let reverseGeocode = [];
+      try {
+        reverseGeocode = await Location.reverseGeocodeAsync({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude
+        });
+      } catch (e) {
+        console.warn('Reverse geocode failed:', e);
+      }
       
       let finalAddress = '';
       if (reverseGeocode.length > 0) {

@@ -75,7 +75,8 @@ const AIProcessingScreen = ({ navigation, route }) => {
     // When both visual steps are done (step === 3) AND API result is ready
     if (step === 3 && (apiResult || apiError)) {
       setTimeout(() => {
-        if (apiResult?.category === 'Invalid' || apiResult?.category === 'Unidentified Issue') {
+        const validCategories = ['Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'];
+        if (!apiResult || !apiResult.category || !validCategories.includes(apiResult.category)) {
           setIsInvalid(true);
         } else {
           navigation.replace('ReviewComplaint', {

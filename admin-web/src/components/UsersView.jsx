@@ -127,6 +127,7 @@ const UsersView = ({ API_URL, reports }) => {
               <th>Name</th>
               <th>Phone Number</th>
               <th>Total Complaints</th>
+              <th>Civic Points</th>
               <th>Joined Date</th>
               <th>Action</th>
             </tr>
@@ -138,6 +139,7 @@ const UsersView = ({ API_URL, reports }) => {
                 <td style={{ fontWeight: 500 }}>{user.name || 'Anonymous'}</td>
                 <td>{user.identifier}</td>
                 <td><span style={{ fontWeight: 600, color: 'var(--primary-color)' }}>{user.complaints_count || 0}</span></td>
+                <td><span style={{ fontWeight: 600, color: '#D97706', backgroundColor: '#FEF3C7', padding: '4px 8px', borderRadius: '12px' }}>★ {user.points || 0}</span></td>
                 <td style={{ color: 'var(--text-secondary)' }}>{formatDate(user.created_at)}</td>
                 <td>
                   <button 

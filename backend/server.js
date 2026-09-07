@@ -338,7 +338,7 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
 app.get('/admin/users', async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT u.id, u.identifier, u.name, u.created_at, COUNT(r.id) as complaints_count 
+      SELECT u.id, u.identifier, u.name, u.points, u.created_at, COUNT(r.id) as complaints_count 
       FROM users u 
       LEFT JOIN reports r ON u.id = r.user_id 
       GROUP BY u.id 

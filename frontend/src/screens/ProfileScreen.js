@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
 
+import { useFocusEffect } from '@react-navigation/native';
+
 const ProfileScreen = ({ navigation }) => {
   const { userToken, API_URL, logout } = useContext(AuthContext);
   const [name, setName] = useState('');
@@ -12,9 +14,11 @@ const ProfileScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchProfile();
+    }, [])
+  );
 
   const fetchProfile = async () => {
     try {

@@ -31,7 +31,7 @@ const MapScreen = () => {
       }
 
       const res = await axios.get(`${API_URL}/reports/public`);
-      setReports(res.data.reports || []);
+      setReports(Array.isArray(res.data) ? res.data : (res.data.reports || []));
     } catch (e) {
       console.error(e);
       Alert.alert('Error', 'Failed to load map data');

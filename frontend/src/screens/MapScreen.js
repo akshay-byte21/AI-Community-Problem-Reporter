@@ -21,27 +21,23 @@ const MapScreen = () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission denied', 'Allow location access to see your area.');
-        return;
+        // Set default location to avoid infinite loading
+        setLocation({ latitude: 12.9716, longitude: 77.5946 }); 
+      } else {
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        setLocation(loc.coords);
       }
-      
-      const servicesEnabled = await Location.hasServicesEnabledAsync();
-      if (!servicesEnabled) {
-        Alert.alert('Location Disabled', 'Please enable GPS/Location services on your device to view the map.');
-        setLoading(false);
-        return;
-      }
-
-      let loc = await Location.getLastKnownPositionAsync({});
-      if (!loc) {
-        loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      }
-      setLocation(loc.coords);
 
       const res = await axios.get(`${API_URL}/reports/public`);
       setReports(res.data.reports || []);
     } catch (e) {
       console.error(e);
       Alert.alert('Error', 'Failed to load map data');
+      // Fallback location so it doesn't stay stuck
+      setLocation({ latitude: 12.9716, longitude: 77.5946 });
+      if (!reports.length) setReports([]);
     } finally {
       setLoading(false);
     }
@@ -126,12 +122,16 @@ const MapScreen = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Civic Issues Map</Text>
       </View>
-      <WebView 
-        source={{ html: htmlContent }} 
-        style={styles.map}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-      />
+      <View collapsable={false} style={{flex: 1}}>
+        <WebView 
+          source={{ html: htmlContent }} 
+          style={styles.map}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          originWhitelist={['*']}
+          androidLayerType="software"
+        />
+      </View>
     </SafeAreaView>
   );
 };

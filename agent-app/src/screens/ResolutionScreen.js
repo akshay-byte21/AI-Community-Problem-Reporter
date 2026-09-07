@@ -50,17 +50,7 @@ const ResolutionScreen = ({ route, navigation }) => {
         return;
       }
 
-      const servicesEnabled = await Location.hasServicesEnabledAsync();
-      if (!servicesEnabled) {
-        Alert.alert('Location Disabled', 'Please enable GPS/Location services on your device to verify resolution.');
-        setCheckingLocation(false);
-        return;
-      }
-
-      let loc = await Location.getLastKnownPositionAsync({});
-      if (!loc) {
-        loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
       setCurrentLocation(loc.coords);
 
       if (report.lat && report.lng) {

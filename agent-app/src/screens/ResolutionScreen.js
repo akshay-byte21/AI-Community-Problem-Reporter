@@ -41,28 +41,30 @@ const ResolutionScreen = ({ route, navigation }) => {
     }
   };
 
-  useEffect(() => {
-    (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission to access location was denied');
-        setCheckingLocation(false);
-        return;
-      }
-
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
-      setCurrentLocation(loc.coords);
-
-      if (report.lat && report.lng) {
-        const dist = getDistance(loc.coords.latitude, loc.coords.longitude, report.lat, report.lng);
-        setDistance(dist);
-        setIsNear(dist <= 20); // 20 meters threshold for high accuracy
-      } else {
-        // If report has no lat/lng, we can't verify. Just allow it for testing purposes.
-        setIsNear(true); 
-      }
+  const checkLocation = async () => {
+    setCheckingLocation(true);
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission to access location was denied');
       setCheckingLocation(false);
-    })();
+      return;
+    }
+
+    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
+    setCurrentLocation(loc.coords);
+
+    if (report.lat && report.lng) {
+      const dist = getDistance(loc.coords.latitude, loc.coords.longitude, report.lat, report.lng);
+      setDistance(dist);
+      setIsNear(dist <= 50); // 50 meters threshold to account for standard GPS drift
+    } else {
+      // If report has no lat/lng, we can't verify. Just allow it for testing purposes.
+      setIsNear(true); 
+    }
+    setCheckingLocation(false);
+  };
+  useEffect(() => {
+    checkLocation();
   }, [report]);
 
   const takePhoto = async () => {
@@ -176,7 +178,7 @@ const ResolutionScreen = ({ route, navigation }) => {
                   : 'Report location unknown (Bypassed).'}
               </Text>
               {!isNear && distance !== null && (
-                <Text style={styles.errorText}>Out of range. You must be within 20 meters.</Text>
+                <Text style={styles.errorText}>Out of range. You must be within 50 meters.</Text>
               )}
             </View>
           )}

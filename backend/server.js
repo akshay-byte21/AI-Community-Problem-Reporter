@@ -263,13 +263,16 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
                     1. Environment Comparison: Look VERY closely at the surrounding environment, landmarks, buildings, trees, walls, or road patterns in the FIRST image (the before image). Does the SECOND image contain these EXACT SAME landmarks? If the agent uploaded a random stock photo, a picture of a screen, or an unrelated location, environment_match is false.
                     2. Issue Resolution: If the environments match, look at the specific civic issue (e.g. the pothole). Has it been physically repaired/fixed in the SECOND image?
 
-                    Respond ONLY with a JSON object in this exact format:
-                    {
-                        "reason": "First, analyze the environment in both images. Explain exactly what landmarks match or don't match. Then, explain if the civic issue has been repaired.",
-                        "environment_match": boolean,
-                        "issue_resolved": boolean,
-                        "valid": boolean
-                    }`
+          CRITICAL RULE: If the environment does NOT match between the two images (e.g., they look like completely different streets, or the agent uploaded a random stock photo), you MUST return "valid": false. 
+          You must ONLY return "valid": true if BOTH "environment_match" is true AND "issue_resolved" is true.
+
+          Respond ONLY with a JSON object in this exact format:
+          {
+              "reason": "First, analyze the environment in both images. Explain exactly what landmarks match or don't match. Then, explain if the civic issue has been repaired.",
+              "environment_match": boolean,
+              "issue_resolved": boolean,
+              "valid": boolean
+          }`
         ];
 
         if (row.image_url) {

@@ -513,10 +513,10 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
         contents: [
             `Analyze this image to determine if it shows a civic issue related to: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, or electricity issues (e.g. fallen poles, cut wires).
             CRITICAL RULES:
-            1. If the image is blurred, return ONLY this JSON: {"category": "Invalid", "description": "image is blurred", "department": "None"}
-            2. If the image shows a keyboard, mug, or random indoor non-civic object, identify the object and return ONLY this JSON: {"category": "Invalid", "description": "[Object Name] is not valid. Valid issues are: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, electricity issues.", "department": "None"} (Replace [Object Name] with what you detected). NOTE: If it is a photo of a computer monitor or screen that is SHOWING a valid civic issue, ACCEPT IT.
-            3. If it matches a valid civic issue, return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (a formal request letter of 3-4 sentences addressing the municipal authority describing the issue, providing context, and respectfully requesting action), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). 
-            4. If the image DOES NOT relate to any of these civic issues at all, return ONLY this JSON: {"category": "Invalid", "description": "Invalid image: Does not match civic issues", "department": "None"}. 
+            1. If the image is blurred, return ONLY this JSON: {"category": "Invalid", "description": "Image is blurred. Please take a clear photo.", "department": "None"}
+            2. If the image shows ONLY a keyboard, mug, or indoor object without any civic issue on a screen, return ONLY this JSON: {"category": "Invalid", "description": "[Object Name] is not a valid civic issue.", "department": "None"} (Replace [Object Name] with what you detected).
+            3. If the image shows a valid civic issue (even if it is a photo of a computer screen or monitor displaying the issue for demo purposes), return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (a formal request letter of 3-4 sentences addressing the municipal authority describing the issue, providing context, and respectfully requesting action), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). 
+            4. If the image DOES NOT relate to any of these civic issues at all, return ONLY this JSON: {"category": "Invalid", "description": "Does not match any valid civic issues.", "department": "None"}. 
             Return ONLY valid JSON, nothing else.`,
             {
                 inlineData: {

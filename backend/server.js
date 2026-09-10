@@ -556,6 +556,10 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
     }
     
     res.json(data);
+  } catch (err) {
+    console.error("Route Error:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Submit a new report

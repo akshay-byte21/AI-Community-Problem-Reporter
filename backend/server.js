@@ -149,7 +149,7 @@ app.post('/login', async (req, res) => {
     const result = await db.query(`SELECT * FROM users WHERE identifier = $1`, [identifier]);
     const user = result.rows[0];
     if (!user) {
-      return res.status(400).json({ error: 'Invalid email/phone or password' });
+      return res.status(400).json({ error: 'user is not registered' });
     }
 
     const isValid = await bcrypt.compare(password, user.password);
@@ -511,7 +511,13 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
     const response = await ai.models.generateContent({
         model: 'gemini-1.5-flash',
         contents: [
-            "Analyze this image to determine if it shows a civic issue related to: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, or electricity issues (e.g. fallen poles, cut wires). If it matches one of these, return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (a formal request letter of 3-4 sentences addressing the municipal authority describing the issue, providing context, and respectfully requesting action), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). If the image DOES NOT relate to any of these civic issues, return ONLY this JSON: {\"category\": \"Invalid\", \"description\": \"Invalid image: Does not match civic issues\", \"department\": \"None\"}. Return ONLY valid JSON, nothing else.",
+            `Analyze this image to determine if it shows a civic issue related to: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, or electricity issues (e.g. fallen poles, cut wires).
+            CRITICAL RULES:
+            1. If the image is blurred, return ONLY this JSON: {"category": "Invalid", "description": "image is blurred", "department": "None"}
+            2. If the image shows a computer screen, laptop, monitor, keyboard, mug, or indoor non-civic object, identify the object and return ONLY this JSON: {"category": "Invalid", "description": "[Object Name] is not valid. Valid issues are: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, electricity issues.", "department": "None"} (Replace [Object Name] with what you detected, e.g., 'Keyboard').
+            3. If it matches a valid civic issue, return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (a formal request letter of 3-4 sentences addressing the municipal authority describing the issue, providing context, and respectfully requesting action), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). 
+            4. If the image DOES NOT relate to any of these civic issues at all, return ONLY this JSON: {"category": "Invalid", "description": "Invalid image: Does not match civic issues", "department": "None"}. 
+            Return ONLY valid JSON, nothing else.`,
             {
                 inlineData: {
                     data: base64Data,

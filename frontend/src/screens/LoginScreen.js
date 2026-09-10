@@ -20,7 +20,14 @@ const LoginScreen = ({ navigation }) => {
       return;
     }
     const result = await login(identifier, password);
-    if (!result.success) Alert.alert('Error', result.message || 'Invalid credentials');
+    if (!result.success) {
+      if (result.message === 'user is not registered') {
+        Alert.alert('Not Registered', 'This user is not registered. Please create an account.');
+        setIsLogin(false); // Switch to sign up mode
+      } else {
+        Alert.alert('Error', result.message || 'Invalid credentials');
+      }
+    }
   };
 
 

@@ -9,6 +9,7 @@ import StatusDetailsScreen from '../screens/StatusDetailsScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import RewardsScreen from '../screens/RewardsScreen';
 import ReportsScreen from '../screens/ReportsScreen';
+import NameSetupScreen from '../screens/NameSetupScreen';
 
 const Stack = createStackNavigator();
 
@@ -16,6 +17,7 @@ const AppStack = () => {
   return (
     <Stack.Navigator screenOptions={{headerShown: false}}>
       <Stack.Screen name="HomeTabs" component={HomeTabs} />
+      <Stack.Screen name="NameSetup" component={NameSetupScreen} />
       <Stack.Screen name="Camera" component={CameraScreen} />
       <Stack.Screen name="AIProcessing" component={AIProcessingScreen} />
       <Stack.Screen name="ReviewComplaint" component={ReviewComplaintScreen} />

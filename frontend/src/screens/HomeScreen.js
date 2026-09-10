@@ -50,7 +50,13 @@ const HomeScreen = ({ navigation }) => {
         headers: { Authorization: `Bearer ${userToken}` }
       });
       if (res.data.name) {
-        setUserName(res.data.name);
+        if (res.data.name === 'User' || res.data.name.trim() === '') {
+          navigation.replace('NameSetup');
+        } else {
+          setUserName(res.data.name);
+        }
+      } else {
+        navigation.replace('NameSetup');
       }
     } catch (e) {
       console.log('Failed to fetch user', e);

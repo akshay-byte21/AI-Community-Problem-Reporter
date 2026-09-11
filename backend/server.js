@@ -14,6 +14,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const transporter = require('nodemailer').createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -76,20 +84,47 @@ async function sendPushNotification(userId, title, body) {
 }
 
 // Send OTP Route
-app.post('/send-otp', (req, res) => {
-  const { identifier } = req.body;
-  if (!identifier) return res.status(400).json({ error: 'Email or phone required' });
+app.post('/send-otp', async (req, res) => {
+  const { identifier, email } = req.body;
+  
+  // For the new signup flow, we will send to 'email'. If not provided, fallback to identifier.
+  const targetEmail = email || identifier;
+  
+  if (!targetEmail) return res.status(400).json({ error: 'Email required for OTP' });
 
   const otp = generateOTP();
-  otpStore.set(identifier, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
+  // We store OTP against the targetEmail so we can verify it later
+  otpStore.set(targetEmail, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
 
-  console.log(`\n========================================`);
-  console.log(`≡뿯ƽ뿯½뿯½ MOCK OTP SENT ≡뿯ƽ뿯½뿯½`);
-  console.log(`To: ${identifier}`);
-  console.log(`Code: ${otp}`);
-  console.log(`========================================\n`);
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: targetEmail,
+    subject: 'Your Verification Code',
+    text: `Your OTP is: ${otp}. It will expire in 10 minutes.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <h2 style="color: #1B8C4A; text-align: center;">Verification Code</h2>
+        <p>Your one-time password (OTP) to sign up is:</p>
+        <div style="background-color: #f4f4f4; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; border-radius: 5px; margin: 20px 0;">
+          ${otp}
+        </div>
+        <p style="color: #777; font-size: 12px; text-align: center;">This code expires in 10 minutes.</p>
+      </div>
+    `
+  };
 
-  res.json({ message: 'Verification code sent successfully' });
+  try {
+    if (targetEmail.includes('@')) {
+      await transporter.sendMail(mailOptions);
+      console.log(`REAL OTP SENT to ${targetEmail}: ${otp}`);
+    } else {
+      console.log(`MOCK OTP SENT (Not an email) to ${targetEmail}: ${otp}`);
+    }
+    res.json({ message: 'Verification code sent successfully' });
+  } catch (error) {
+    console.error('Error sending email:', error);
+    res.status(500).json({ error: 'Failed to send OTP email' });
+  }
 });
 
 // Verify OTP Route
@@ -118,13 +153,14 @@ app.post('/register', async (req, res) => {
   const identifier = req.body.identifier || req.body.phone;
   const password = req.body.password;
   const name = req.body.name;
+  const email = req.body.email;
   if (!identifier || !password) return res.status(400).json({ error: 'Identifier and password required' });
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await db.query(
-      `INSERT INTO users (identifier, password, name) VALUES ($1, $2, $3) RETURNING id`, 
-      [identifier, hashedPassword, name || '']
+      `INSERT INTO users (identifier, password, name, email) VALUES ($1, $2, $3, $4) RETURNING id`, 
+      [identifier, hashedPassword, name || '', email || null]
     );
     res.status(201).json({ message: 'User created', userId: result.rows[0].id });
   } catch (error) {

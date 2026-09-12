@@ -9,10 +9,21 @@ const db = require('./database');
 const { GoogleGenAI } = require('@google/genai');
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const compression = require('compression');
+const NodeCache = require('node-cache');
 
 const app = express();
+app.use(compression()); // Compress all responses
 app.use(cors());
 app.use(express.json());
+
+// Initialize cache with 5 minutes TTL
+const cache = new NodeCache({ stdTTL: 300 });
+
+// Clear cache helper
+const clearCache = () => {
+  cache.flushAll();
+};
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -381,6 +392,7 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
       sendPushNotification(userRes.rows[0].user_id, 'Issue Repaired! 🛠️', 'Your reported issue has been fixed by the agent. Open the app to verify it and claim your +50 Civic Points!');
     }
 
+    clearCache(); // Invalidate cache on update
     res.json({ message: 'Report resolved, pending user verification', imageUrl: imageUrl });
   } catch (err) {
     console.error(err);
@@ -432,6 +444,7 @@ app.post('/admin/reports/:id/assign', async (req, res) => {
       await sendPushNotification(staffRes.rows[0].push_token, 'New Assignment 📋', `You have been assigned to a ${result.rows[0].category} issue at ${result.rows[0].address}`);
     }
     
+    clearCache(); // Invalidate cache on update
     res.json({ message: 'Staff assigned successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -441,6 +454,9 @@ app.post('/admin/reports/:id/assign', async (req, res) => {
 // Admin: Get all reports in the system
 app.get('/admin/reports', async (req, res) => {
   try {
+    const cachedData = cache.get('admin_reports');
+    if (cachedData) return res.json({ reports: cachedData });
+
     const result = await db.query(`
       SELECT r.*, u.name as user_name, u.identifier as user_identifier, s.name as staff_name 
       FROM reports r 
@@ -448,6 +464,8 @@ app.get('/admin/reports', async (req, res) => {
       LEFT JOIN staff s ON r.assigned_staff_id = s.id
       ORDER BY r.created_at DESC
     `);
+    
+    cache.set('admin_reports', result.rows);
     res.json({ reports: result.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -531,11 +549,16 @@ app.put('/user/push-token', authenticateToken, async (req, res) => {
 // Get public reports for map
 app.get('/reports/public', async (req, res) => {
   try {
+    const cachedData = cache.get('public_reports');
+    if (cachedData) return res.json(cachedData);
+
     const result = await db.query(`
       SELECT id, category, department, lat, lng, status, created_at
       FROM reports
       WHERE status != 'Solved' AND lat IS NOT NULL AND lng IS NOT NULL
     `);
+    
+    cache.set('public_reports', result.rows);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -651,10 +674,12 @@ app.post('/reports', authenticateToken, upload.single('image'), async (req, res)
     }
 
     const result = await db.query(
-      `INSERT INTO reports (user_id, category, description, department, lat, lng, address, image_url, assigned_staff_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL) RETURNING id`,
-      [userId, category, description, department, lat, lng, address, imageUrl]
+      `INSERT INTO reports (user_id, category, description, department, lat, lng, address, image_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      [req.user.userId, category, description, department, lat, lng, address, imageUrl]
     );
-    res.status(201).json({ message: 'Report submitted', reportId: result.rows[0].id, assignedStaffId: null });
+    
+    clearCache(); // Invalidate cache on new report
+    res.status(201).json({ message: 'Report submitted successfully', reportId: result.rows[0].id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -752,7 +777,12 @@ app.use((req, res) => {
   res.sendFile(path.join(__dirname, '../admin-web/dist/index.html'));
 });
 
-const PORT = process.env.PORT || 8080;
+// Render Keep-Alive Ping
+app.get('/ping', (req, res) => {
+  res.send('pong');
+});
+
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });

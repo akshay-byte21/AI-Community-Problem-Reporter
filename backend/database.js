@@ -75,6 +75,13 @@ async function initDB() {
     await client.query(`ALTER TABLE staff ENABLE ROW LEVEL SECURITY;`);
     await client.query(`ALTER TABLE reports ENABLE ROW LEVEL SECURITY;`);
 
+    // Performance Optimization: Add Indexes
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_users_identifier ON users(identifier);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_reports_user_id ON reports(user_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_reports_assigned_staff_id ON reports(assigned_staff_id);`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports(created_at);`);
+
     // Seed Staff Table if empty
     const res = await client.query("SELECT COUNT(*) FROM staff");
     if (parseInt(res.rows[0].count) === 0) {

@@ -26,9 +26,19 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const resetPassword = async (identifier, answer, newPassword) => {
+  const verifySecurityAnswer = async (identifier, answer) => {
     try {
-      const res = await axios.post(`${API_URL}/reset-password`, { identifier, answer, newPassword });
+      const res = await axios.post(`${API_URL}/verify-security-answer`, { identifier, answer });
+      return { success: true, message: res.data.message };
+    } catch (e) {
+      console.error(e);
+      return { success: false, message: e.response?.data?.error || 'Verification failed' };
+    }
+  };
+
+  const resetPassword = async (identifier, newPassword) => {
+    try {
+      const res = await axios.post(`${API_URL}/reset-password`, { identifier, newPassword });
       return { success: true, message: res.data.message };
     } catch (e) {
       console.error(e);
@@ -81,7 +91,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ login, logout, register, getSecurityQuestion, resetPassword, userToken, isLoading, API_URL }}>
+    <AuthContext.Provider value={{ login, logout, register, getSecurityQuestion, verifySecurityAnswer, resetPassword, userToken, isLoading, API_URL }}>
       {children}
     </AuthContext.Provider>
   );

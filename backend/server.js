@@ -194,10 +194,10 @@ app.post('/get-security-question', async (req, res) => {
   }
 });
 
-// Reset Password Route (via Security Question)
-app.post('/reset-password', async (req, res) => {
-  const { identifier, answer, newPassword } = req.body;
-  if (!identifier || !answer || !newPassword) return res.status(400).json({ error: 'All fields required' });
+// Verify Security Answer Route
+app.post('/verify-security-answer', async (req, res) => {
+  const { identifier, answer } = req.body;
+  if (!identifier || !answer) return res.status(400).json({ error: 'Phone number and answer required' });
 
   try {
     const result = await db.query(`SELECT security_answer FROM users WHERE identifier = $1`, [identifier]);
@@ -208,6 +208,18 @@ app.post('/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Incorrect security answer' });
     }
 
+    res.json({ success: true, message: 'Answer verified' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reset Password Route (via Security Question)
+app.post('/reset-password', async (req, res) => {
+  const { identifier, newPassword } = req.body;
+  if (!identifier || !newPassword) return res.status(400).json({ error: 'Phone number and new password required' });
+
+  try {
     const hashedNew = await bcrypt.hash(newPassword, 10);
     await db.query('UPDATE users SET password = $1 WHERE identifier = $2', [hashedNew, identifier]);
     res.json({ message: 'Password reset successfully' });

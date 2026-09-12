@@ -1,5 +1,5 @@
-import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import React, { useState, useContext, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Alert, KeyboardAvoidingView, Platform, ScrollView, Animated } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -11,7 +11,7 @@ const SECURITY_QUESTIONS = [
 ];
 
 const LoginScreen = ({ navigation }) => {
-  const { login, register, getSecurityQuestion, resetPassword } = useContext(AuthContext);
+  const { login, register, getSecurityQuestion, verifySecurityAnswer, resetPassword } = useContext(AuthContext);
   
   const [isLogin, setIsLogin] = useState(true);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -29,6 +29,18 @@ const LoginScreen = ({ navigation }) => {
 
   // Security Question States (Reset)
   const [fetchedQuestion, setFetchedQuestion] = useState('');
+  
+  // Shake Animation Value
+  const shakeAnimation = useRef(new Animated.Value(0)).current;
+
+  const triggerShake = () => {
+    Animated.sequence([
+      Animated.timing(shakeAnimation, { toValue: 10, duration: 100, useNativeDriver: true }),
+      Animated.timing(shakeAnimation, { toValue: -10, duration: 100, useNativeDriver: true }),
+      Animated.timing(shakeAnimation, { toValue: 10, duration: 100, useNativeDriver: true }),
+      Animated.timing(shakeAnimation, { toValue: 0, duration: 100, useNativeDriver: true })
+    ]).start();
+  };
 
   const handleLogin = async () => {
     if (!identifier || !password) {
@@ -89,9 +101,25 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
+  const handleVerifyAnswer = async () => {
+    if (!securityAnswer.trim()) {
+      Alert.alert('Error', 'Please enter your answer');
+      return;
+    }
+    const res = await verifySecurityAnswer(identifier, securityAnswer);
+    if (res.success) {
+      // Move to step 3 (Set New Password)
+      setResetStep(3);
+    } else {
+      // Trigger animation on failure
+      triggerShake();
+      Alert.alert('Incorrect Answer', res.message || 'The security answer is incorrect.');
+    }
+  };
+
   const handleResetPassword = async () => {
-    if (!securityAnswer.trim() || !password) {
-      Alert.alert('Error', 'Please enter your answer and a new password');
+    if (!password) {
+      Alert.alert('Error', 'Please enter a new password');
       return;
     }
     if (password.length < 6) {
@@ -99,7 +127,7 @@ const LoginScreen = ({ navigation }) => {
       return;
     }
 
-    const res = await resetPassword(identifier, securityAnswer, password);
+    const res = await resetPassword(identifier, password);
     if (res.success) {
       Alert.alert('Success', 'Password reset successfully! You can now log in.');
       setIsForgotPassword(false);
@@ -122,7 +150,7 @@ const LoginScreen = ({ navigation }) => {
   const renderForgotPassword = () => {
     return (
       <View style={styles.form}>
-        {resetStep === 1 ? (
+        {resetStep === 1 && (
           <>
             <View style={styles.inputWrapper}>
               <Ionicons name="call-outline" size={20} color="#888" style={styles.inputIcon} />
@@ -140,12 +168,14 @@ const LoginScreen = ({ navigation }) => {
               <Text style={styles.buttonText}>Get Security Question</Text>
             </TouchableOpacity>
           </>
-        ) : (
+        )}
+        
+        {resetStep === 2 && (
           <>
             <Text style={styles.questionText}>Security Question:</Text>
             <Text style={styles.questionBold}>{fetchedQuestion}</Text>
             
-            <View style={styles.inputWrapper}>
+            <Animated.View style={[styles.inputWrapper, { transform: [{ translateX: shakeAnimation }] }]}>
               <Ionicons name="shield-checkmark-outline" size={20} color="#888" style={styles.inputIcon} />
               <TextInput 
                 style={styles.input} 
@@ -155,8 +185,17 @@ const LoginScreen = ({ navigation }) => {
                 onChangeText={setSecurityAnswer}
                 autoCapitalize="none"
               />
-            </View>
+            </Animated.View>
 
+            <TouchableOpacity style={styles.button} onPress={handleVerifyAnswer}>
+              <Text style={styles.buttonText}>Verify Answer</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {resetStep === 3 && (
+          <>
+            <Text style={styles.successText}>Answer verified! Create a new password.</Text>
             <View style={styles.inputWrapper}>
               <Ionicons name="lock-closed-outline" size={20} color="#888" style={styles.inputIcon} />
               <TextInput 
@@ -173,13 +212,13 @@ const LoginScreen = ({ navigation }) => {
             </View>
 
             <TouchableOpacity style={styles.button} onPress={handleResetPassword}>
-              <Text style={styles.buttonText}>Reset Password</Text>
+              <Text style={styles.buttonText}>Update Password</Text>
             </TouchableOpacity>
           </>
         )}
         
         <TouchableOpacity style={styles.cancelButton} onPress={() => { setIsForgotPassword(false); setResetStep(1); }}>
-          <Text style={styles.cancelButtonText}>Back to Login</Text>
+          <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
       </View>
     );
@@ -201,10 +240,12 @@ const LoginScreen = ({ navigation }) => {
               </View>
             </View>
             <Text style={styles.welcomeText}>
-              {isForgotPassword ? 'Reset Password' : isLogin ? 'Welcome Back!' : 'Create Account'}
+              {isForgotPassword ? (resetStep === 3 ? 'New Password' : 'Reset Password') : isLogin ? 'Welcome Back!' : 'Create Account'}
             </Text>
             <Text style={styles.subText}>
-              {isForgotPassword ? 'Answer your security question' : isLogin ? 'Login to continue' : 'Enter 10-digit Phone number to sign up'}
+              {isForgotPassword 
+                ? (resetStep === 1 ? 'Enter your phone number' : resetStep === 2 ? 'Answer your security question' : 'Set your new password') 
+                : isLogin ? 'Login to continue' : 'Enter 10-digit Phone number to sign up'}
             </Text>
           </View>
 
@@ -494,6 +535,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 24,
+    textAlign: 'center'
+  },
+  successText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1B8C4A',
     marginBottom: 24,
     textAlign: 'center'
   }

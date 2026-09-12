@@ -19,11 +19,11 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "owner": "akshayganeshs-team",
     "extra": {
       "eas": {
-        "projectId": "28f124b1-da93-47d7-b44f-d9a8cc2deff4"
+        "projectId": "78c96d6a-9a98-4b02-b258-97cf281fc9e1"
       }
-    }
+    },
+    "owner": "gaganesh2196"
   }
 }

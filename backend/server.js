@@ -34,6 +34,17 @@ const SECRET_KEY = 'super_secret_key_for_this_app_only'; // In production, use e
 // In-memory OTP store for prototyping
 const otpStore = new Map();
 
+// Auto-migrate users table to include security question fields
+(async () => {
+  try {
+    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS security_question TEXT`);
+    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS security_answer TEXT`);
+    console.log("Database schema auto-migrated successfully.");
+  } catch (err) {
+    console.error("Auto-migration error:", err);
+  }
+})();
+
 // Generate a random 4-digit OTP
 const generateOTP = () => Math.floor(1000 + Math.random() * 9000).toString();
 
@@ -118,13 +129,15 @@ app.post('/register', async (req, res) => {
   const identifier = req.body.identifier || req.body.phone;
   const password = req.body.password;
   const name = req.body.name;
+  const securityQuestion = req.body.securityQuestion;
+  const securityAnswer = req.body.securityAnswer;
   if (!identifier || !password) return res.status(400).json({ error: 'Identifier and password required' });
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await db.query(
-      `INSERT INTO users (identifier, password, name) VALUES ($1, $2, $3) RETURNING id`, 
-      [identifier, hashedPassword, name || '']
+      `INSERT INTO users (identifier, password, name, security_question, security_answer) VALUES ($1, $2, $3, $4, $5) RETURNING id`, 
+      [identifier, hashedPassword, name || '', securityQuestion || null, securityAnswer ? securityAnswer.toLowerCase().trim() : null]
     );
     res.status(201).json({ message: 'User created', userId: result.rows[0].id });
   } catch (error) {
@@ -159,6 +172,45 @@ app.post('/login', async (req, res) => {
 
     const token = jwt.sign({ userId: user.id }, SECRET_KEY, { expiresIn: '365d' });
     res.json({ token, userId: user.id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get Security Question Route
+app.post('/get-security-question', async (req, res) => {
+  const { identifier } = req.body;
+  if (!identifier) return res.status(400).json({ error: 'Phone number required' });
+
+  try {
+    const result = await db.query(`SELECT security_question FROM users WHERE identifier = $1`, [identifier]);
+    const user = result.rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user.security_question) return res.status(400).json({ error: 'No security question set for this account' });
+    
+    res.json({ question: user.security_question });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reset Password Route (via Security Question)
+app.post('/reset-password', async (req, res) => {
+  const { identifier, answer, newPassword } = req.body;
+  if (!identifier || !answer || !newPassword) return res.status(400).json({ error: 'All fields required' });
+
+  try {
+    const result = await db.query(`SELECT security_answer FROM users WHERE identifier = $1`, [identifier]);
+    const user = result.rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    if (!user.security_answer || user.security_answer !== answer.toLowerCase().trim()) {
+      return res.status(400).json({ error: 'Incorrect security answer' });
+    }
+
+    const hashedNew = await bcrypt.hash(newPassword, 10);
+    await db.query('UPDATE users SET password = $1 WHERE identifier = $2', [hashedNew, identifier]);
+    res.json({ message: 'Password reset successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

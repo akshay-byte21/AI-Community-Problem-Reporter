@@ -16,23 +16,23 @@ export const AuthProvider = ({ children }) => {
   // The backend URL - update this when your Cloudflare tunnel restarts
   const API_URL = 'https://ai-community-problem-reporter.onrender.com';
 
-  const sendOtp = async (identifier) => {
+  const getSecurityQuestion = async (identifier) => {
     try {
-      const res = await axios.post(`${API_URL}/send-otp`, { identifier });
-      return { success: true, message: res.data.message };
+      const res = await axios.post(`${API_URL}/get-security-question`, { identifier });
+      return { success: true, question: res.data.question };
     } catch (e) {
       console.error(e);
-      return { success: false, message: e.response?.data?.error || 'Failed to send OTP' };
+      return { success: false, message: e.response?.data?.error || 'Failed to fetch security question' };
     }
   };
 
-  const verifyOtp = async (identifier, otp) => {
+  const resetPassword = async (identifier, answer, newPassword) => {
     try {
-      const res = await axios.post(`${API_URL}/verify-otp`, { identifier, otp });
+      const res = await axios.post(`${API_URL}/reset-password`, { identifier, answer, newPassword });
       return { success: true, message: res.data.message };
     } catch (e) {
       console.error(e);
-      return { success: false, message: e.response?.data?.error || 'Invalid OTP' };
+      return { success: false, message: e.response?.data?.error || 'Password reset failed' };
     }
   };
 
@@ -49,9 +49,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (identifier, password) => {
+  const register = async (identifier, password, securityQuestion, securityAnswer) => {
     try {
-      await axios.post(`${API_URL}/register`, { identifier, password });
+      await axios.post(`${API_URL}/register`, { identifier, password, securityQuestion, securityAnswer });
       return { success: true };
     } catch (e) {
       console.error(e);
@@ -81,7 +81,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ login, logout, register, sendOtp, verifyOtp, userToken, isLoading, API_URL }}>
+    <AuthContext.Provider value={{ login, logout, register, getSecurityQuestion, resetPassword, userToken, isLoading, API_URL }}>
       {children}
     </AuthContext.Provider>
   );

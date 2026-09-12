@@ -34,17 +34,6 @@ const SECRET_KEY = 'super_secret_key_for_this_app_only'; // In production, use e
 // In-memory OTP store for prototyping
 const otpStore = new Map();
 
-// Auto-migrate users table to include security question fields
-(async () => {
-  try {
-    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS security_question TEXT`);
-    await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS security_answer TEXT`);
-    console.log("Database schema auto-migrated successfully.");
-  } catch (err) {
-    console.error("Auto-migration error:", err);
-  }
-})();
-
 // Generate a random 4-digit OTP
 const generateOTP = () => Math.floor(1000 + Math.random() * 9000).toString();
 

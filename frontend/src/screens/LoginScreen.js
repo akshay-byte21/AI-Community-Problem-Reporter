@@ -1,4 +1,4 @@
-import React, { useState, useContext, useRef } from 'react';
+import React, { useState, useContext, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Alert, KeyboardAvoidingView, Platform, ScrollView, Animated } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,7 @@ const LoginScreen = ({ navigation }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [resetStep, setResetStep] = useState(1);
+  const [chancesLeft, setChancesLeft] = useState(3);
   
   // States
   const [identifier, setIdentifier] = useState('');
@@ -30,8 +31,10 @@ const LoginScreen = ({ navigation }) => {
   // Security Question States (Reset)
   const [fetchedQuestion, setFetchedQuestion] = useState('');
   
-  // Shake Animation Value
+  // Animation Values
   const shakeAnimation = useRef(new Animated.Value(0)).current;
+  const fadeAnimation = useRef(new Animated.Value(0)).current;
+  const slideAnimation = useRef(new Animated.Value(20)).current;
 
   const triggerShake = () => {
     Animated.sequence([
@@ -41,6 +44,27 @@ const LoginScreen = ({ navigation }) => {
       Animated.timing(shakeAnimation, { toValue: 0, duration: 100, useNativeDriver: true })
     ]).start();
   };
+
+  const triggerEntranceAnimation = () => {
+    fadeAnimation.setValue(0);
+    slideAnimation.setValue(20);
+    Animated.parallel([
+      Animated.timing(fadeAnimation, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnimation, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      })
+    ]).start();
+  };
+
+  useEffect(() => {
+    triggerEntranceAnimation();
+  }, [isLogin, isForgotPassword, resetStep]);
 
   const handleLogin = async () => {
     if (!identifier || !password) {
@@ -95,6 +119,7 @@ const LoginScreen = ({ navigation }) => {
     const res = await getSecurityQuestion(identifier);
     if (res.success) {
       setFetchedQuestion(res.question);
+      setChancesLeft(3); // Reset chances
       setResetStep(2);
     } else {
       Alert.alert('Error', res.message);
@@ -108,12 +133,20 @@ const LoginScreen = ({ navigation }) => {
     }
     const res = await verifySecurityAnswer(identifier, securityAnswer);
     if (res.success) {
-      // Move to step 3 (Set New Password)
       setResetStep(3);
     } else {
-      // Trigger animation on failure
       triggerShake();
-      Alert.alert('Incorrect Answer', res.message || 'The security answer is incorrect.');
+      const newChances = chancesLeft - 1;
+      setChancesLeft(newChances);
+      
+      if (newChances <= 0) {
+        Alert.alert('Blocked', 'You have exhausted all attempts. Please try again later.');
+        setIsForgotPassword(false);
+        setResetStep(1);
+        setSecurityAnswer('');
+      } else {
+        Alert.alert('Incorrect Answer', `Wrong answer! You have ${newChances} chance(s) left.`);
+      }
     }
   };
 
@@ -151,7 +184,7 @@ const LoginScreen = ({ navigation }) => {
     return (
       <View style={styles.form}>
         {resetStep === 1 && (
-          <>
+          <Animated.View style={{ opacity: fadeAnimation, transform: [{ translateY: slideAnimation }] }}>
             <View style={styles.inputWrapper}>
               <Ionicons name="call-outline" size={20} color="#888" style={styles.inputIcon} />
               <TextInput 
@@ -167,11 +200,11 @@ const LoginScreen = ({ navigation }) => {
             <TouchableOpacity style={styles.button} onPress={handleGetQuestion}>
               <Text style={styles.buttonText}>Get Security Question</Text>
             </TouchableOpacity>
-          </>
+          </Animated.View>
         )}
         
         {resetStep === 2 && (
-          <>
+          <Animated.View style={{ opacity: fadeAnimation, transform: [{ translateY: slideAnimation }] }}>
             <Text style={styles.questionText}>Security Question:</Text>
             <Text style={styles.questionBold}>{fetchedQuestion}</Text>
             
@@ -186,15 +219,16 @@ const LoginScreen = ({ navigation }) => {
                 autoCapitalize="none"
               />
             </Animated.View>
+            <Text style={styles.chancesText}>Chances left: {chancesLeft}</Text>
 
             <TouchableOpacity style={styles.button} onPress={handleVerifyAnswer}>
               <Text style={styles.buttonText}>Verify Answer</Text>
             </TouchableOpacity>
-          </>
+          </Animated.View>
         )}
 
         {resetStep === 3 && (
-          <>
+          <Animated.View style={{ opacity: fadeAnimation, transform: [{ translateY: slideAnimation }] }}>
             <Text style={styles.successText}>Answer verified! Create a new password.</Text>
             <View style={styles.inputWrapper}>
               <Ionicons name="lock-closed-outline" size={20} color="#888" style={styles.inputIcon} />
@@ -214,12 +248,14 @@ const LoginScreen = ({ navigation }) => {
             <TouchableOpacity style={styles.button} onPress={handleResetPassword}>
               <Text style={styles.buttonText}>Update Password</Text>
             </TouchableOpacity>
-          </>
+          </Animated.View>
         )}
         
-        <TouchableOpacity style={styles.cancelButton} onPress={() => { setIsForgotPassword(false); setResetStep(1); }}>
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
+        <Animated.View style={{ opacity: fadeAnimation, transform: [{ translateY: slideAnimation }] }}>
+          <TouchableOpacity style={styles.cancelButton} onPress={() => { setIsForgotPassword(false); setResetStep(1); }}>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </View>
     );
   };
@@ -232,7 +268,7 @@ const LoginScreen = ({ navigation }) => {
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
-          <View style={styles.header}>
+          <Animated.View style={[styles.header, { opacity: fadeAnimation, transform: [{ translateY: slideAnimation }] }]}>
             <View style={styles.iconContainer}>
               <Ionicons name="location" size={50} color="#1B8C4A" />
               <View style={styles.iconBadge}>
@@ -247,10 +283,10 @@ const LoginScreen = ({ navigation }) => {
                 ? (resetStep === 1 ? 'Enter your phone number' : resetStep === 2 ? 'Answer your security question' : 'Set your new password') 
                 : isLogin ? 'Login to continue' : 'Enter 10-digit Phone number to sign up'}
             </Text>
-          </View>
+          </Animated.View>
 
           {isForgotPassword ? renderForgotPassword() : (
-            <View style={styles.form}>
+            <Animated.View style={[styles.form, { opacity: fadeAnimation, transform: [{ translateY: slideAnimation }] }]}>
               <View style={styles.inputWrapper}>
                 <Ionicons name="call-outline" size={20} color="#888" style={styles.inputIcon} />
                 <TextInput 
@@ -330,20 +366,20 @@ const LoginScreen = ({ navigation }) => {
                   {isLogin ? 'Login' : 'Create Account'}
                 </Text>
               </TouchableOpacity>
-            </View>
+            </Animated.View>
           )}
           
           <View style={styles.spacer} />
 
           {!isForgotPassword && (
-            <View style={styles.switchAuth}>
+            <Animated.View style={[styles.switchAuth, { opacity: fadeAnimation, transform: [{ translateY: slideAnimation }] }]}>
               <Text style={styles.switchAuthText} numberOfLines={1} adjustsFontSizeToFit>
                 {isLogin ? "Don't have an account? " : "Already have an account? "}
               </Text>
               <TouchableOpacity onPress={switchMode}>
                 <Text style={styles.switchAuthLink}>{isLogin ? 'Sign Up' : 'Login'}</Text>
               </TouchableOpacity>
-            </View>
+            </Animated.View>
           )}
           
         </ScrollView>
@@ -535,7 +571,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 24,
+    marginBottom: 16,
     textAlign: 'center'
   },
   successText: {
@@ -544,6 +580,14 @@ const styles = StyleSheet.create({
     color: '#1B8C4A',
     marginBottom: 24,
     textAlign: 'center'
+  },
+  chancesText: {
+    fontSize: 13,
+    color: '#ef4444',
+    textAlign: 'right',
+    marginTop: -8,
+    marginBottom: 16,
+    marginRight: 4
   }
 });
 

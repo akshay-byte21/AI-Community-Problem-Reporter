@@ -767,19 +767,216 @@ setInterval(async () => {
       console.log(`Auto-assigned staff ${randomStaff.id} to report ${report.id} after 3 days.`);
     }
   } catch (err) {
+        category: 'Road',
+        description: 'To the Municipal Authority,\n\nI am writing to formally request immediate attention to a severe road damage issue...',
+        department: 'Municipal Corporation (Road Maintenance)'
+      });
+    }
+
+    const imagePath = req.file.path; // Cloudinary URL
+    const mimeType = req.file.mimetype;
+    const base64Data = await urlToBase64(imagePath);
+
+    let success = false;
+    let data = null;
+    let attempts = 0;
+    
+    while (!success && attempts < 3) {
+      attempts++;
+      try {
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const response = await ai.models.generateContent({
+            model: 'gemini-flash-latest',
+            contents: [
+                `Analyze this image to determine if it shows a civic issue related to: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, or electricity issues (e.g. fallen poles, cut wires).
+                CRITICAL RULES:
+                1. If the image is blurred, return ONLY this JSON: {"category": "Invalid", "description": "Image is blurred. Please take a clear photo.", "department": "None"}
+                2. If the image shows ONLY a keyboard, mug, or indoor object without any civic issue on a screen, return ONLY this JSON: {"category": "Invalid", "description": "[Object Name] is not a valid civic issue.", "department": "None"} (Replace [Object Name] with what you detected).
+                3. If the image shows a valid civic issue (even if it is a photo of a computer screen or monitor displaying the issue for demo purposes), return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (a formal request letter of 3-4 sentences addressing the municipal authority describing the issue, providing context, and respectfully requesting action), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). 
+                4. If the image DOES NOT relate to any of these civic issues at all, return ONLY this JSON: {"category": "Invalid", "description": "Does not match any valid civic issues.", "department": "None"}. 
+                Return ONLY valid JSON, nothing else.`,
+                {
+                    inlineData: {
+                        data: base64Data,
+                        mimeType: mimeType
+                    }
+                }
+            ]
+        });
+        
+        const text = response.text;
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            data = JSON.parse(jsonMatch[0]);
+            success = true;
+        } else {
+            throw new Error("No JSON found in response");
+        }
+      } catch (err) {
+        console.error(`Gemini AI Error (Attempt ${attempts}):`, err);
+        if (attempts >= 3) {
+          return res.json({
+            category: 'Unidentified Issue',
+            description: 'Could not automatically describe this issue due to high server demand. Please try again or review manually.',
+            department: 'General Administration'
+          });
+        }
+        // Wait 2 seconds before retrying
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+    
+    res.json(data);
+  } catch (err) {
+    console.error("Route Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Submit a new report
+app.post('/reports', authenticateToken, upload.single('image'), async (req, res) => {
+  const { category, description, department, lat, lng, address } = req.body;
+  const imageUrl = req.file ? req.file.path : null; // Cloudinary URL
+  const userId = req.user.userId;
+
+  try {
+    // Geo-fence Deduplication Check (50 meters)
+    if (lat && lng) {
+      const radiusKm = 0.05; // 50 meters
+      const query = `
+        SELECT r.id, u.name 
+        FROM reports r
+        JOIN users u ON r.user_id = u.id
+        WHERE r.status != 'Solved' 
+          AND r.category = $1
+          AND r.lat IS NOT NULL AND r.lng IS NOT NULL
+          AND (
+            6371 * acos(
+              cos(radians($2::float)) * cos(radians(r.lat::float)) *
+              cos(radians(r.lng::float) - radians($3::float)) +
+              sin(radians($2::float)) * sin(radians(r.lat::float))
+            )
+          ) < $4
+        LIMIT 1
+      `;
+      const duplicateRes = await db.query(query, [category, lat, lng, radiusKm]);
+      if (duplicateRes.rows.length > 0) {
+        const existingUserName = duplicateRes.rows[0].name || 'another user';
+        return res.status(409).json({ 
+          error: `A ${category} complaint has already been registered near this exact location by ${existingUserName}.` 
+        });
+      }
+    }
+
+    const result = await db.query(
+      `INSERT INTO reports (user_id, category, description, department, lat, lng, address, image_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      [req.user.userId, category, description, department, lat, lng, address, imageUrl]
+    );
+    
+    clearCache(); // Invalidate cache on new report
+    res.status(201).json({ message: 'Report submitted successfully', reportId: result.rows[0].id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Mark a report as Completed by the user
+app.put('/reports/:id/complete', authenticateToken, async (req, res) => {
+  const reportId = req.params.id;
+  const userId = req.user.userId;
+  try {
+    const result = await db.query(`UPDATE reports SET status = 'Solved', solved_at = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = $2`, [reportId, userId]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Report not found or not authorized' });
+    
+    // Add 50 civic points
+    await db.query(`UPDATE users SET points = points + 50 WHERE id = $1`, [userId]);
+    sendPushNotification(userId, 'Issue Solved! 🎉', 'You earned +50 Civic Points for keeping your community safe.');
+
+    res.json({ message: 'Report marked as completed successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reopen a report by the user
+app.put('/reports/:id/reopen', authenticateToken, async (req, res) => {
+  const reportId = req.params.id;
+  const userId = req.user.userId;
+  try {
+    const result = await db.query(`UPDATE reports SET status = 'In Progress', resolution_image_url = NULL WHERE id = $1 AND user_id = $2`, [reportId, userId]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Report not found or not authorized' });
+    res.json({ message: 'Report reopened successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Manually assign staff to a report
+app.put('/admin/reports/:id/assign', async (req, res) => {
+  const { staff_id } = req.body;
+  try {
+    await db.query(`UPDATE reports SET assigned_staff_id = $1, status = 'In Progress', progress_at = CURRENT_TIMESTAMP WHERE id = $2`, [staff_id, req.params.id]);
+    res.json({ message: 'Staff assigned successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Change Password Route
+app.put('/change-password', authenticateToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Both passwords required' });
+
+  try {
+    const result = await db.query('SELECT password FROM users WHERE id = $1', [req.user.userId]);
+    const row = result.rows[0];
+    if (!row) return res.status(404).json({ error: 'User not found' });
+
+    const isValid = await bcrypt.compare(currentPassword, row.password);
+    if (!isValid) return res.status(400).json({ error: 'Incorrect current password' });
+
+    const hashedNew = await bcrypt.hash(newPassword, 10);
+    await db.query('UPDATE users SET password = $1 WHERE id = $2', [hashedNew, req.user.userId]);
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// Auto-assign staff to complaints older than 3 days
+setInterval(async () => {
+  try {
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    const result = await db.query(`SELECT id, department FROM reports WHERE assigned_staff_id IS NULL AND created_at < $1`, [threeDaysAgo]);
+    const rows = result.rows;
+    if (!rows || rows.length === 0) return;
+
+    for (const report of rows) {
+      const staffResult = await db.query(`SELECT id FROM staff WHERE department = $1`, [report.department]);
+      const staffRows = staffResult.rows;
+      if (!staffRows || staffRows.length === 0) continue;
+      
+      const randomStaff = staffRows[Math.floor(Math.random() * staffRows.length)];
+      await db.query(`UPDATE reports SET assigned_staff_id = $1, status = 'In Progress', progress_at = CURRENT_TIMESTAMP WHERE id = $2`, [randomStaff.id, report.id]);
+      console.log(`Auto-assigned staff ${randomStaff.id} to report ${report.id} after 3 days.`);
+    }
+  } catch (err) {
     console.error('Error auto-assigning staff:', err);
   }
 }, 60000); // Check every minute
 
 // Serve the Admin Dashboard
 app.use(express.static(path.join(__dirname, '../admin-web/dist')));
-app.use((req, res) => {
-  res.sendFile(path.join(__dirname, '../admin-web/dist/index.html'));
-});
 
 // Render Keep-Alive Ping
 app.get('/ping', (req, res) => {
   res.send('pong');
+});
+
+// Serve frontend for any other route (SPA)
+app.use((req, res) => {
+  res.sendFile(path.join(__dirname, '../admin-web/dist/index.html'));
 });
 
 const PORT = process.env.PORT || 3000;

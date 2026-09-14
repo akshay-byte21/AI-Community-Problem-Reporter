@@ -32,7 +32,7 @@ const AIProcessingScreen = ({ navigation, route }) => {
       } else {
         clearInterval(interval);
       }
-    }, 1500);
+    }, 400); // Speed up the fake animation massively
 
     return () => clearInterval(interval);
   }, []);
@@ -72,8 +72,11 @@ const AIProcessingScreen = ({ navigation, route }) => {
   }, []);
 
   useEffect(() => {
-    // When both visual steps are done (step === 3) AND API result is ready
-    if (step === 3 && (apiResult || apiError)) {
+    // When API result is ready, bypass the artificial animation and process immediately
+    if (apiResult || apiError) {
+      setStep(3);
+      setProgress(1);
+      
       setTimeout(() => {
         const validCategories = ['Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'];
         if (!apiResult || !apiResult.category || !validCategories.includes(apiResult.category)) {
@@ -88,9 +91,9 @@ const AIProcessingScreen = ({ navigation, route }) => {
             department: apiResult?.department || 'General Administration'
           });
         }
-      }, 1000);
+      }, 300); // tiny visual delay for smooth transition
     }
-  }, [step, apiResult, apiError]);
+  }, [apiResult, apiError]);
 
   if (isInvalid) {
     return (

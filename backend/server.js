@@ -601,7 +601,7 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
                 1. If the image is blurred, return ONLY this JSON: {"category": "Invalid", "description": "Image is blurred. Please take a clear photo.", "department": "None"}
                 2. If the image shows ONLY a keyboard, mug, or indoor object without any civic issue on a screen, return ONLY this JSON: {"category": "Invalid", "description": "[Object Name] is not a valid civic issue.", "department": "None"} (Replace [Object Name] with what you detected).
                 3. If the image shows a valid civic issue (even if it is a photo of a computer screen or monitor displaying the issue for demo purposes), return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (a formal request letter of 3-4 sentences addressing the municipal authority describing the issue, providing context, and respectfully requesting action), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). 
-                4. If the image DOES NOT relate to any of these civic issues at all, return ONLY this JSON: {"category": "Invalid", "description": "Does not match any valid civic issues.", "department": "None"}. 
+                4. If the image DOES NOT relate to any of these civic issues at all, return ONLY this JSON: {"category": "Invalid", "description": "This image shows [Describe exactly what is in the image in 1-2 words]. This is not a valid civic issue.", "department": "None"}. 
                 Return ONLY valid JSON, nothing else.`,
                 {
                     inlineData: {

@@ -969,7 +969,7 @@ setInterval(async () => {
 // Serve the Admin Dashboard
 app.use(express.static(path.join(__dirname, '../admin-web/dist')));
 
-// Render Keep-Alive Ping
+// Render Keep-Alive Ping (Webhook Re-trigger)
 app.get('/ping', (req, res) => {
   res.send('pong');
 });

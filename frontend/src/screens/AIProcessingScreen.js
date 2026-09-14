@@ -99,7 +99,7 @@ const AIProcessingScreen = ({ navigation, route }) => {
           <Ionicons name="close-circle" size={80} color="#EF4444" style={{ marginBottom: 20 }} />
           <Text style={styles.title}>Image Rejected</Text>
           <Text style={styles.subtitle}>
-            {apiResult?.description || "This image does not match our supported civic issues."}
+            {apiResult?.description || "This image doesn’t show a supported civic issue."}
           </Text>
           <View style={styles.invalidInfoContainer}>
              <Text style={styles.invalidInfoText}>We only accept reports for:</Text>

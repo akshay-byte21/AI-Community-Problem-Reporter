@@ -79,16 +79,31 @@ const AIProcessingScreen = ({ navigation, route }) => {
       
       setTimeout(() => {
         const validCategories = ['Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'];
-        if (!apiResult || !apiResult.category || !validCategories.includes(apiResult.category)) {
-          setIsInvalid(true);
-        } else {
+        
+        // If the AI completely failed (network error or rate limit), let the user proceed manually!
+        if (apiError || (apiResult && apiResult.category === 'Unidentified Issue')) {
           navigation.replace('ReviewComplaint', {
             imageUri,
             location,
             address,
-            aiCategory: apiResult?.category || 'Unknown Problem',
-            aiDescription: apiResult?.description || 'Could not generate description. Please proceed manually.',
-            department: apiResult?.department || 'General Administration'
+            aiCategory: 'Unknown Problem',
+            aiDescription: '', // Leave empty so user can type it themselves without backspacing errors
+            department: 'General Administration'
+          });
+        } 
+        // If the AI successfully processed the image, but determined it's NOT a civic issue (e.g. it's a mug/keyboard)
+        else if (!apiResult || !apiResult.category || !validCategories.includes(apiResult.category)) {
+          setIsInvalid(true);
+        } 
+        // If the AI successfully found a valid civic issue
+        else {
+          navigation.replace('ReviewComplaint', {
+            imageUri,
+            location,
+            address,
+            aiCategory: apiResult.category,
+            aiDescription: apiResult.description,
+            department: apiResult.department
           });
         }
       }, 300); // tiny visual delay for smooth transition

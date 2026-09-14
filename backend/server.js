@@ -606,7 +606,10 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
                         mimeType: mimeType
                     }
                 }
-            ]
+            ],
+            config: {
+                responseMimeType: "application/json",
+            }
         });
         
         const text = response.text;
@@ -619,15 +622,19 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
         }
       } catch (err) {
         console.error(`Gemini AI Error (Attempt ${attempts}):`, err);
+        const status = err.status || (err.response && err.response.status);
+        if (status === 400 || status === 404) {
+            attempts = 3; // Do not retry for client errors to avoid lag
+        }
         if (attempts >= 3) {
           return res.json({
             category: 'Unidentified Issue',
-            description: 'Could not automatically describe this issue due to high server demand. Please try again or review manually.',
+            description: `Could not automatically describe this issue. Error: ${err.message}. Please try again or review manually.`,
             department: 'General Administration'
           });
         }
-        // Wait 2 seconds before retrying
-        await new Promise(r => setTimeout(r, 2000));
+        // Wait 1 second before retrying (reduced to avoid lag)
+        await new Promise(r => setTimeout(r, 1000));
       }
     }
     

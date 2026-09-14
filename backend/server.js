@@ -314,9 +314,10 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
     const row = result.rows[0];
     if (!row) return res.status(404).json({ error: 'Report not found or not assigned to you' });
 
-    if (process.env.GEMINI_API_KEY) {
+    const agentApiKey = process.env.GEMINI_AGENT_API_KEY || process.env.GEMINI_API_KEY;
+    if (agentApiKey) {
       try {
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const ai = new GoogleGenAI({ apiKey: agentApiKey });
         let contents = [
           `You are a strict, highly critical AI verification system. You are auditing a civic worker who might be trying to cheat the system.
           Analyze these two images. 

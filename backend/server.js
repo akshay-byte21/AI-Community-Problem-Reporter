@@ -364,7 +364,7 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
         });
 
         const response = await ai.models.generateContent({
-          model: 'gemini-1.5-pro',
+          model: 'gemini-1.5-flash',
           contents: contents
         });
 
@@ -600,7 +600,7 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
       try {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         const response = await ai.models.generateContent({
-            model: 'gemini-1.5-pro',
+            model: 'gemini-1.5-flash',
             contents: [
                 `Analyze this image to determine if it shows a civic issue related to: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, or electricity issues (e.g. fallen poles, cut wires).
                 CRITICAL RULES:

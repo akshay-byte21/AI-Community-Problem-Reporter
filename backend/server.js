@@ -627,9 +627,19 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
             attempts = 3; // Do not retry for client errors to avoid lag
         }
         if (attempts >= 3) {
+          let niceMessage = "The AI servers are currently overloaded. Please try again later.";
+          try {
+              const parsed = JSON.parse(err.message);
+              if (parsed.error && parsed.error.message) {
+                  niceMessage = parsed.error.message;
+              }
+          } catch(e) {
+              if (err.message) niceMessage = err.message;
+          }
+          
           return res.json({
             category: 'Unidentified Issue',
-            description: `Could not automatically describe this issue. Error: ${err.message}. Please try again or review manually.`,
+            description: `Could not automatically describe this issue: ${niceMessage}`,
             department: 'General Administration'
           });
         }

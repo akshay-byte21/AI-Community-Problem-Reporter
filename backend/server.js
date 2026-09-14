@@ -302,13 +302,13 @@ app.get('/agent/reports', authenticateAgent, async (req, res) => {
 });
 
 // Resolve a report with a photo
-app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req, res) => {
+app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), async (req, res) => {
   const reportId = req.body.reportId;
   if (!req.file || !reportId) return res.status(400).json({ error: 'Image and reportId required' });
 
   try {
-    const imagePath = req.file.path; // Cloudinary URL
     const mimeType = req.file.mimetype;
+    const newBase64 = req.file.buffer.toString("base64");
 
     const result = await db.query('SELECT category, description, image_url FROM reports WHERE id = $1 AND assigned_staff_id = $2', [reportId, req.agent.staffId]);
     const row = result.rows[0];
@@ -355,7 +355,6 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
            Return a JSON object with 'valid' (boolean) and 'reason' (string explaining why). Reply ONLY with valid JSON.`;
         }
 
-        const newBase64 = await urlToBase64(imagePath);
         contents.push({
           inlineData: {
             data: newBase64,
@@ -364,7 +363,7 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
         });
 
         const response = await ai.models.generateContent({
-          model: 'gemini-flash-latest',
+          model: 'gemini-3.6-flash',
           contents: contents
         });
 
@@ -373,15 +372,19 @@ app.post('/agent/resolve', authenticateAgent, upload.single('image'), async (req
         const verification = JSON.parse(jsonStr);
 
         if (!verification.valid) {
-          return res.status(400).json({ error: `AI Verification Failed: ${verification.reason}` });
+          return res.status(400).json({ error: verification.reason });
         }
       } catch (aiErr) {
         console.error("AI Verification failed", aiErr);
-        return res.status(400).json({ error: `AI System Error: Could not verify image.` });
+        let msg = aiErr.message || "Unknown error";
+        return res.status(400).json({ error: `AI System Error: ${msg}` });
       }
     }
 
-    const imageUrl = req.file.path;
+    // Only upload to Cloudinary IF AI validation passes! (Massive speedup)
+    const uploadResponse = await cloudinary.uploader.upload(`data:${mimeType};base64,${newBase64}`, { folder: 'complaints' });
+    const imageUrl = uploadResponse.secure_url;
+
     await db.query(
       `UPDATE reports SET status = 'Pending Verification', resolution_image_url = $1, completed_at = CURRENT_TIMESTAMP WHERE id = $2`,
       [imageUrl, reportId]

@@ -34,7 +34,19 @@ const DepartmentsView = ({ reports, API_URL }) => {
   });
 
   if (selectedDept) {
-    const deptStaff = staff.filter(s => s.department === selectedDept);
+    const normalize = (str) => (str || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z]/g, '');
+    const normSelected = normalize(selectedDept);
+    
+    let deptStaff = staff.filter(s => normalize(s.department) === normSelected);
+    if (deptStaff.length === 0) {
+      deptStaff = staff.filter(s => {
+        const sDept = normalize(s.department);
+        return sDept.includes(normSelected) || normSelected.includes(sDept);
+      });
+    }
+    if (deptStaff.length === 0) {
+      deptStaff = staff; // Ultimate fallback
+    }
     const deptReports = reports.filter(r => (r.department || 'Unassigned') === selectedDept);
     
     return (

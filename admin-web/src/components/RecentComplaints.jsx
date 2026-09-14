@@ -38,7 +38,24 @@ const RecentComplaints = ({ reports, API_URL }) => {
     try {
       const response = await axios.get(`${API_URL}/admin/staff`);
       const allStaff = response.data.staff || [];
-      setStaffList(allStaff.filter(s => s.department === report.department));
+      
+      const normalize = (str) => (str || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z]/g, '');
+      const reportDept = normalize(report.department);
+      
+      let filtered = allStaff.filter(s => normalize(s.department) === reportDept);
+      
+      if (filtered.length === 0) {
+        filtered = allStaff.filter(s => {
+            const sDept = normalize(s.department);
+            return sDept.includes(reportDept) || reportDept.includes(sDept);
+        });
+      }
+      
+      if (filtered.length === 0) {
+        filtered = allStaff; // Ultimate fallback so dropdown is never totally empty
+      }
+      
+      setStaffList(filtered);
     } catch (err) {
       console.error(err);
     }

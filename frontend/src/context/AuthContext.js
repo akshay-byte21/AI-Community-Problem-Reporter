@@ -78,7 +78,23 @@ export const AuthProvider = ({ children }) => {
     try {
       setIsLoading(true);
       let token = await AsyncStorage.getItem('userToken');
-      setUserToken(token);
+      if (token) {
+        try {
+          // Verify token is still valid with the backend
+          const res = await axios.get(`${API_URL}/user`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setUserToken(token);
+          setUserData(res.data);
+        } catch (err) {
+          console.log('Token expired or invalid, logging out automatically');
+          setUserToken(null);
+          setUserData(null);
+          await AsyncStorage.removeItem('userToken');
+        }
+      } else {
+        setUserToken(null);
+      }
       setIsLoading(false);
     } catch (e) {
       console.error(e);

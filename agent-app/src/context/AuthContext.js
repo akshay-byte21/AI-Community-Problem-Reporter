@@ -39,8 +39,20 @@ export const AuthProvider = ({ children }) => {
       const token = await AsyncStorage.getItem('userToken');
       const staff = await AsyncStorage.getItem('agentData');
       if (token && staff) {
-        setUserToken(token);
-        setAgent(JSON.parse(staff));
+        try {
+          // Verify agent token with backend
+          await axios.get(`${API_URL}/agent/reports`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setUserToken(token);
+          setAgent(JSON.parse(staff));
+        } catch (err) {
+          console.log('Agent token expired or invalid');
+          setUserToken(null);
+          setAgent(null);
+          await AsyncStorage.removeItem('userToken');
+          await AsyncStorage.removeItem('agentData');
+        }
       }
     } catch (e) {
       console.error(e);

@@ -39,6 +39,7 @@ const storage = new CloudinaryStorage({
   },
 });
 const upload = multer({ storage: storage });
+const memoryUpload = multer({ storage: multer.memoryStorage() });
 
 const SECRET_KEY = 'super_secret_key_for_this_app_only'; // In production, use env variable
 
@@ -566,7 +567,7 @@ app.get('/reports/public', async (req, res) => {
 });
 
 // Analyze image using Gemini AI
-app.post('/analyze-image', authenticateToken, upload.single('image'), async (req, res) => {
+app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Image is required' });
     
@@ -578,9 +579,8 @@ app.post('/analyze-image', authenticateToken, upload.single('image'), async (req
       });
     }
 
-    const imagePath = req.file.path; // Cloudinary URL
     const mimeType = req.file.mimetype;
-    const base64Data = await urlToBase64(imagePath);
+    const base64Data = req.file.buffer.toString("base64");
 
     let success = false;
     let data = null;

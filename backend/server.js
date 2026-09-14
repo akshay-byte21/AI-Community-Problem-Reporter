@@ -727,7 +727,15 @@ app.put('/reports/:id/reopen', authenticateToken, async (req, res) => {
 app.put('/admin/reports/:id/assign', async (req, res) => {
   const { staff_id } = req.body;
   try {
-    await db.query(`UPDATE reports SET assigned_staff_id = $1, status = 'In Progress', progress_at = CURRENT_TIMESTAMP WHERE id = $2`, [staff_id, req.params.id]);
+    const result = await db.query(`UPDATE reports SET assigned_staff_id = $1, status = 'In Progress', progress_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING category, address`, [staff_id, req.params.id]);
+    
+    // Notify the agent
+    const staffRes = await db.query(`SELECT push_token FROM staff WHERE id = $1`, [staff_id]);
+    if (staffRes.rows.length > 0 && staffRes.rows[0].push_token) {
+      await sendPushNotification(staffRes.rows[0].push_token, 'New Assignment 📋', `You have been assigned to a ${result.rows[0]?.category} issue at ${result.rows[0]?.address}`);
+    }
+    
+    clearCache(); // Invalidate cache on update! This fixes the assignment bug!
     res.json({ message: 'Staff assigned successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });

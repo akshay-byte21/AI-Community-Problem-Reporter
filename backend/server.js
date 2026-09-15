@@ -602,14 +602,13 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
       try {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         const response = await ai.models.generateContent({
-            model: 'gemini-3.6-flash',
+            model: 'gemini-3.7-flash',
             contents: [
                 `Analyze this image to determine if it shows a civic issue related to: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, or electricity issues (e.g. fallen poles, cut wires).
                 CRITICAL RULES:
                 1. If the image is blurred, return ONLY this JSON: {"category": "Invalid", "description": "Image is blurred. Please take a clear photo.", "department": "None"}
-                2. If the image shows ONLY a keyboard, mug, laptop, or blank indoor wall with absolutely no civic issue on the screen, return ONLY this JSON: {"category": "Invalid", "description": "[Object Name] detected. This is not a valid civic issue.", "department": "None"}
-                3. If the image shows a valid civic issue (NOTE: Please accept photos of computer screens/monitors displaying a civic issue, as this is used for testing), return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (Generate a very detailed, professional, and clear 3-4 sentence report describing the exact severity, location context seen in the photo, and the specific impact on the community to assist the municipal authority), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). 
-                4. If the image DOES NOT relate to any of these civic issues at all, return ONLY this JSON: {"category": "Invalid", "description": "This image shows [Describe exactly what is in the image]. This is not a recognized civic issue.", "department": "None"}. 
+                2. If the image shows a valid civic issue (including photos of a computer screen or monitor displaying a civic issue), return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (Generate a very detailed, professional, and clear 3-4 sentence report describing the exact severity, location context seen in the photo, and the specific impact on the community to assist the municipal authority), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). 
+                3. If the image DOES NOT relate to any of these civic issues at all (e.g. it is just a plain wall, a mug, or a blank keyboard with no civic issue on the screen), return ONLY this JSON: {"category": "Invalid", "description": "This is not a recognized civic issue.", "department": "None"}. 
                 Return ONLY valid JSON, nothing else.`,
                 {
                     inlineData: {

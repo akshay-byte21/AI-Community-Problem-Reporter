@@ -12,6 +12,8 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const compression = require('compression');
 const NodeCache = require('node-cache');
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 const app = express();
 app.use(compression()); // Compress all responses
 app.use(cors());
@@ -635,6 +637,7 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
         if (status === 400 || status === 404) {
             attempts = 3; // Do not retry for client errors to avoid lag
         }
+        if (attempts < 3) await sleep(Math.pow(2, attempts) * 1000); // Exponential backoff
         if (attempts >= 3) {
           let niceMessage = "The AI servers are currently overloaded. Please try again later.";
           try {

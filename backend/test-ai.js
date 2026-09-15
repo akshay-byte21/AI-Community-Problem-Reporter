@@ -1,26 +1,37 @@
 require('dotenv').config();
 const { GoogleGenAI } = require('@google/genai');
 
-async function test() {
-  try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: 'Write a valid JSON object with {"status": "ok"}. Reply with only JSON.',
-        config: {
-            responseMimeType: "application/json",
-        }
-    });
-    console.log("RESPONSE TEXT TYPE:", typeof response.text);
-    console.log("RESPONSE TEXT IS FUNCTION?", typeof response.text === 'function');
-    console.log("RESPONSE TEXT VALUE:", response.text);
-    
-    // Check if we need to call it
-    const actualText = typeof response.text === 'function' ? response.text() : response.text;
-    console.log("ACTUAL TEXT:", actualText);
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-  } catch (err) {
-    console.error("ERROR:", err);
+async function testImage() {
+  let attempts = 0;
+  let success = false;
+  
+  while (attempts < 3 && !success) {
+    attempts++;
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const dummyBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+        
+        console.log(`Attempt ${attempts}...`);
+        const response = await ai.models.generateContent({
+            model: 'gemini-3.6-flash',
+            contents: [
+                "Is this a pothole?",
+                { inlineData: { data: dummyBase64, mimeType: "image/png" } }
+            ]
+        });
+        
+        console.log("SUCCESS!");
+        console.log("TEXT VALUE:", response.text);
+        success = true;
+    } catch (err) {
+        console.error(`ERROR on attempt ${attempts}:`, err.message);
+        if (attempts < 3) {
+            console.log("Sleeping for 2 seconds before retry...");
+            await sleep(2000);
+        }
+    }
   }
 }
-test();
+testImage();

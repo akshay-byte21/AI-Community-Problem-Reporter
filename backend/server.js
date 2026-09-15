@@ -318,74 +318,93 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
 
     const agentApiKey = process.env.GEMINI_AGENT_API_KEY || process.env.GEMINI_API_KEY;
     if (agentApiKey) {
-      try {
-        const ai = new GoogleGenAI({ apiKey: agentApiKey });
-        let contents = [
-          `You are a strict, highly critical AI verification system. You are auditing a civic worker who might be trying to cheat the system.
-          Analyze these two images. 
-          FIRST image: The 'Before' state (the reported civic issue). 
-          SECOND image: The 'After' state (uploaded by the worker as proof of resolution).
-          Issue category: '${row.category}'. Description: '${row.description}'. 
-
-          Perform a step-by-step visual audit:
-                    1. Environment Comparison: Look VERY closely at the surrounding environment, landmarks, buildings, trees, walls, or road patterns in the FIRST image (the before image). Does the SECOND image contain these EXACT SAME landmarks? (NOTE: If BOTH images are photos of a computer screen, that is acceptable for testing, but their displayed contents/environment must match).
-                    2. Issue Resolution: If the environments match, look at the specific civic issue (e.g. the pothole). Has it been physically repaired/fixed in the SECOND image?
-
-          CRITICAL RULE: You must be extremely smart and detailed in your reasoning. If the environment does NOT match between the two images (e.g., different streets, different wall textures, different surroundings, or a random stock photo), you MUST return "valid": false and provide a clear, descriptive reason to the agent about exactly what did not match. 
-          You must ONLY return "valid": true if BOTH "environment_match" is true AND "issue_resolved" is true.
-
-          Respond ONLY with a JSON object in this exact format:
-          {
-              "reason": "Clear and specific message to the agent. If rejected, clearly state exactly why it was rejected (e.g. 'The background buildings do not match the original photo' or 'The pothole is still visible').",
-              "environment_match": boolean,
-              "issue_resolved": boolean,
-              "valid": boolean
-          }`
-        ];
-
-        if (row.image_url) {
-          const originalBase64 = await urlToBase64(row.image_url);
+      let success = false;
+      let verification = null;
+      let attempts = 0;
+      let lastErrorMsg = "Unknown error";
+      
+      while (!success && attempts < 5) {
+        attempts++;
+        try {
+          const ai = new GoogleGenAI({ apiKey: agentApiKey });
+          let contents = [
+            `You are a strict, highly critical AI verification system. You are auditing a civic worker who might be trying to cheat the system.
+            Analyze these two images. 
+            FIRST image: The 'Before' state (the reported civic issue). 
+            SECOND image: The 'After' state (uploaded by the worker as proof of resolution).
+            Issue category: '${row.category}'. Description: '${row.description}'. 
+  
+            Perform a step-by-step visual audit:
+                      1. Environment Comparison: Look VERY closely at the surrounding environment, landmarks, buildings, trees, walls, or road patterns in the FIRST image (the before image). Does the SECOND image contain these EXACT SAME landmarks? (NOTE: If BOTH images are photos of a computer screen, that is acceptable for testing, but their displayed contents/environment must match).
+                      2. Issue Resolution: If the environments match, look at the specific civic issue (e.g. the pothole). Has it been physically repaired/fixed in the SECOND image?
+  
+            CRITICAL RULE: You must be extremely smart and detailed in your reasoning. If the environment does NOT match between the two images (e.g., different streets, different wall textures, different surroundings, or a random stock photo), you MUST return "valid": false and provide a clear, descriptive reason to the agent about exactly what did not match. 
+            You must ONLY return "valid": true if BOTH "environment_match" is true AND "issue_resolved" is true.
+  
+            Respond ONLY with a JSON object in this exact format:
+            {
+                "reason": "Clear and specific message to the agent. If rejected, clearly state exactly why it was rejected (e.g. 'The background buildings do not match the original photo' or 'The pothole is still visible').",
+                "environment_match": boolean,
+                "issue_resolved": boolean,
+                "valid": boolean
+            }`
+          ];
+  
+          if (row.image_url) {
+            const originalBase64 = await urlToBase64(row.image_url);
+            contents.push({
+              inlineData: {
+                data: originalBase64,
+                mimeType: "image/jpeg"
+              }
+            });
+          } else {
+             contents[0] = `You are a strict AI verification system. Analyze this image. 
+             Does it show a resolved state of a civic issue related to: '${row.category}' (Description: '${row.description}')? 
+             CRITICAL RULE: If the image is just a random object and NOT a civic environment, you MUST return valid: false.
+             Return a JSON object with 'valid' (boolean) and 'reason' (string explaining why). Reply ONLY with valid JSON.`;
+          }
+  
           contents.push({
             inlineData: {
-              data: originalBase64,
-              mimeType: "image/jpeg"
+              data: newBase64,
+              mimeType: mimeType
             }
           });
-        } else {
-           contents[0] = `You are a strict AI verification system. Analyze this image. 
-           Does it show a resolved state of a civic issue related to: '${row.category}' (Description: '${row.description}')? 
-           CRITICAL RULE: If the image is just a random object and NOT a civic environment, you MUST return valid: false.
-           Return a JSON object with 'valid' (boolean) and 'reason' (string explaining why). Reply ONLY with valid JSON.`;
-        }
-
-        contents.push({
-          inlineData: {
-            data: newBase64,
-            mimeType: mimeType
+  
+          const response = await ai.models.generateContent({
+            model: 'gemini-3.7-flash',
+            contents: contents
+          });
+  
+          const text = response.text;
+          const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+          verification = JSON.parse(jsonStr);
+          success = true;
+          
+        } catch (aiErr) {
+          console.error(`Agent AI Verification failed (Attempt ${attempts}):`, aiErr);
+          let msg = aiErr.message || "Unknown error";
+          try {
+            const parsed = JSON.parse(msg);
+            if (parsed.error && parsed.error.message) msg = parsed.error.message;
+          } catch(e) {}
+          lastErrorMsg = msg;
+          
+          const status = aiErr.status || (aiErr.response && aiErr.response.status);
+          if (status === 400 || status === 404) {
+              attempts = 5; // Do not retry for client errors to avoid lag
           }
-        });
-
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.7-flash',
-          contents: contents
-        });
-
-        const text = response.text;
-        const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        const verification = JSON.parse(jsonStr);
-
-        if (!verification.valid) {
-          return res.status(400).json({ error: verification.reason });
+          if (attempts < 5) await sleep(Math.pow(2, attempts) * 1000); // Exponential backoff
         }
-      } catch (aiErr) {
-        console.error("AI Verification failed", aiErr);
-        let msg = aiErr.message || "Unknown error";
-        try {
-          const parsed = JSON.parse(msg);
-          if (parsed.error && parsed.error.message) msg = parsed.error.message;
-        } catch(e) {}
-        
-        return res.status(400).json({ error: `AI System Error: ${msg}` });
+      }
+      
+      if (!success) {
+        return res.status(400).json({ error: `AI System Error (High Load): ${lastErrorMsg}` });
+      }
+
+      if (!verification.valid) {
+        return res.status(400).json({ error: verification.reason });
       }
     }
 
@@ -597,7 +616,7 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
     let data = null;
     let attempts = 0;
     
-    while (!success && attempts < 3) {
+    while (!success && attempts < 5) {
       attempts++;
       try {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -634,10 +653,10 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
         console.error(`Gemini AI Error (Attempt ${attempts}):`, err);
         const status = err.status || (err.response && err.response.status);
         if (status === 400 || status === 404) {
-            attempts = 3; // Do not retry for client errors to avoid lag
+            attempts = 5; // Do not retry for client errors to avoid lag
         }
-        if (attempts < 3) await sleep(Math.pow(2, attempts) * 1000); // Exponential backoff
-        if (attempts >= 3) {
+        if (attempts < 5) await sleep(Math.pow(2, attempts) * 1000); // Exponential backoff
+        if (attempts >= 5) {
           let niceMessage = "The AI servers are currently overloaded. Please try again later.";
           try {
               const parsed = JSON.parse(err.message);

@@ -328,7 +328,7 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
           Issue category: '${row.category}'. Description: '${row.description}'. 
 
           Perform a step-by-step visual audit:
-                    1. Environment Comparison: Look VERY closely at the surrounding environment, landmarks, buildings, trees, walls, or road patterns in the FIRST image (the before image). Does the SECOND image contain these EXACT SAME landmarks? If the agent uploaded a random stock photo, a picture of a screen, or an unrelated location, environment_match is false.
+                    1. Environment Comparison: Look VERY closely at the surrounding environment, landmarks, buildings, trees, walls, or road patterns in the FIRST image (the before image). Does the SECOND image contain these EXACT SAME landmarks? (NOTE: If BOTH images are photos of a computer screen, that is acceptable for testing, but their displayed contents/environment must match).
                     2. Issue Resolution: If the environments match, look at the specific civic issue (e.g. the pothole). Has it been physically repaired/fixed in the SECOND image?
 
           CRITICAL RULE: You must be extremely smart and detailed in your reasoning. If the environment does NOT match between the two images (e.g., different streets, different wall textures, different surroundings, or a random stock photo), you MUST return "valid": false and provide a clear, descriptive reason to the agent about exactly what did not match. 
@@ -354,7 +354,7 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
         } else {
            contents[0] = `You are a strict AI verification system. Analyze this image. 
            Does it show a resolved state of a civic issue related to: '${row.category}' (Description: '${row.description}')? 
-           CRITICAL RULE: If the image is a random object (like a keyboard, monitor, indoor room) and NOT a civic environment, you MUST return valid: false.
+           CRITICAL RULE: If the image is just a random object and NOT a civic environment, you MUST return valid: false.
            Return a JSON object with 'valid' (boolean) and 'reason' (string explaining why). Reply ONLY with valid JSON.`;
         }
 
@@ -366,7 +366,7 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
         });
 
         const response = await ai.models.generateContent({
-          model: 'gemini-3.6-flash',
+          model: 'gemini-3.7-flash',
           contents: contents
         });
 

@@ -329,12 +329,12 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
                     1. Environment Comparison: Look VERY closely at the surrounding environment, landmarks, buildings, trees, walls, or road patterns in the FIRST image (the before image). Does the SECOND image contain these EXACT SAME landmarks? If the agent uploaded a random stock photo, a picture of a screen, or an unrelated location, environment_match is false.
                     2. Issue Resolution: If the environments match, look at the specific civic issue (e.g. the pothole). Has it been physically repaired/fixed in the SECOND image?
 
-          CRITICAL RULE: If the environment does NOT match between the two images (e.g., they look like completely different streets, or the agent uploaded a random stock photo), you MUST return "valid": false. 
+          CRITICAL RULE: You must be extremely smart and detailed in your reasoning. If the environment does NOT match between the two images (e.g., different streets, different wall textures, different surroundings, or a random stock photo), you MUST return "valid": false and provide a clear, descriptive reason to the agent about exactly what did not match. 
           You must ONLY return "valid": true if BOTH "environment_match" is true AND "issue_resolved" is true.
 
           Respond ONLY with a JSON object in this exact format:
           {
-              "reason": "First, analyze the environment in both images. Explain exactly what landmarks match or don't match. Then, explain if the civic issue has been repaired.",
+              "reason": "Clear and specific message to the agent. If rejected, clearly state exactly why it was rejected (e.g. 'The background buildings do not match the original photo' or 'The pothole is still visible').",
               "environment_match": boolean,
               "issue_resolved": boolean,
               "valid": boolean
@@ -605,9 +605,9 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
                 `Analyze this image to determine if it shows a civic issue related to: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, or electricity issues (e.g. fallen poles, cut wires).
                 CRITICAL RULES:
                 1. If the image is blurred, return ONLY this JSON: {"category": "Invalid", "description": "Image is blurred. Please take a clear photo.", "department": "None"}
-                2. If the image shows ONLY a keyboard, mug, or indoor object without any civic issue on a screen, return ONLY this JSON: {"category": "Invalid", "description": "[Object Name] is not a valid civic issue.", "department": "None"} (Replace [Object Name] with what you detected).
-                3. If the image shows a valid civic issue (even if it is a photo of a computer screen or monitor displaying the issue for demo purposes), return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (a formal request letter of 3-4 sentences addressing the municipal authority describing the issue, providing context, and respectfully requesting action), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). 
-                4. If the image DOES NOT relate to any of these civic issues at all, return ONLY this JSON: {"category": "Invalid", "description": "This image shows [Describe exactly what is in the image in 1-2 words]. This is not a valid civic issue.", "department": "None"}. 
+                2. If the image shows ONLY a keyboard, mug, laptop, or indoor object without any real-world civic issue, return ONLY this JSON: {"category": "Invalid", "description": "[Object Name] detected. This is not a valid civic issue. Please upload a real-world photo of a civic problem.", "department": "None"}
+                3. If the image shows a valid civic issue, return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (Generate a very detailed, professional, and clear 3-4 sentence report describing the exact severity, location context seen in the photo, and the specific impact on the community to assist the municipal authority), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). 
+                4. If the image DOES NOT relate to any of these civic issues at all, return ONLY this JSON: {"category": "Invalid", "description": "This image shows [Describe exactly what is in the image]. This is not a recognized civic issue.", "department": "None"}. 
                 Return ONLY valid JSON, nothing else.`,
                 {
                     inlineData: {

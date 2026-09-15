@@ -87,10 +87,15 @@ export const AuthProvider = ({ children }) => {
           setUserToken(token);
           setUserData(res.data);
         } catch (err) {
-          console.log('Token expired or invalid, logging out automatically');
-          setUserToken(null);
-          setUserData(null);
-          await AsyncStorage.removeItem('userToken');
+          if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+            console.log('Token expired or invalid, logging out automatically');
+            setUserToken(null);
+            setUserData(null);
+            await AsyncStorage.removeItem('userToken');
+          } else {
+            console.log('Network error on startup, keeping token alive');
+            setUserToken(token);
+          }
         }
       } else {
         setUserToken(null);

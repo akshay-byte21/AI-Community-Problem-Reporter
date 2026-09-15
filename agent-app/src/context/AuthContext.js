@@ -47,11 +47,17 @@ export const AuthProvider = ({ children }) => {
           setUserToken(token);
           setAgent(JSON.parse(staff));
         } catch (err) {
-          console.log('Agent token expired or invalid');
-          setUserToken(null);
-          setAgent(null);
-          await AsyncStorage.removeItem('userToken');
-          await AsyncStorage.removeItem('agentData');
+          if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+            console.log('Agent token expired or invalid');
+            setUserToken(null);
+            setAgent(null);
+            await AsyncStorage.removeItem('userToken');
+            await AsyncStorage.removeItem('agentData');
+          } else {
+            console.log('Network error on startup, keeping agent token alive');
+            setUserToken(token);
+            setAgent(JSON.parse(staff));
+          }
         }
       }
     } catch (e) {

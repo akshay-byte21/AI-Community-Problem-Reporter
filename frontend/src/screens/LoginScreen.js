@@ -13,7 +13,7 @@ const SECURITY_QUESTIONS = [
 const LoginScreen = ({ navigation }) => {
   const { login, register, getSecurityQuestion, verifySecurityAnswer, resetPassword } = useContext(AuthContext);
   
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [resetStep, setResetStep] = useState(1);
   const [chancesLeft, setChancesLeft] = useState(3);

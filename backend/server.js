@@ -360,14 +360,15 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
             Issue category: '${row.category}'. Description: '${row.description}'. 
   
             Perform a step-by-step visual audit:
-            1. Environment Comparison: Look VERY closely at the surrounding environment, landmarks, buildings, trees, walls, or road patterns in the LEFT half. Does the RIGHT half contain these EXACT SAME landmarks? (NOTE: If BOTH sides show computer screens or monitors, they must be displaying the EXACT same background/environment).
-            2. Issue Resolution: If the environments match, look at the specific civic issue (e.g. pothole) in the RIGHT half. Has it been physically repaired/fixed compared to the LEFT half?
+            1. Relevance Check: Is the second (RIGHT) image related to the first (LEFT) image at all? If one shows a burst water pipe and the other shows a pothole, they are completely unrelated.
+            2. Environment Comparison: If they are related, look VERY closely at the surrounding environment. Do the backgrounds match perfectly? Check for exact matches in lanes, side footpaths, road textures, buildings, and trees. (NOTE: If BOTH sides show computer screens or monitors, they must be displaying the EXACT same background/environment).
+            3. Issue Resolution: If the environments perfectly match, look at the specific civic issue (e.g., pothole, garbage, water pipe) in the RIGHT half. Has it been physically repaired and completely fixed in the second image?
   
-            CRITICAL RULE: If the environment/surroundings do NOT clearly match between the left and right halves (e.g. different streets, textures, angles that make it impossible to verify, or stock photos), you MUST return "valid": false and provide a clear, descriptive reason to the agent about exactly what did not match. 
+            CRITICAL RULE: If the images are unrelated, OR the environment (lanes/footpaths/background) does not match, OR the issue is not repaired, you MUST return "valid": false and reject it.
   
             Respond ONLY with a JSON object in this exact format:
             {
-                "reason": "Clear message to the agent. If rejected because the images show completely different things, format it exactly like: 'The first image is a [describe first image], but the second image is a [describe second image].' (e.g. 'The first image is a pothole on a street, but the second image is a keyboard.')",
+                "reason": "Clear message to the agent. If rejected because images are unrelated, format it exactly like: 'The first image is a [describe first image], but the second image is a [describe second image].' If rejected because environments don't match, specify exactly what is missing (e.g. 'The side footpath in the first image is missing in the second image'). If rejected because it is not repaired, state 'The issue is not yet repaired.'",
                 "environment_match": boolean,
                 "issue_resolved": boolean,
                 "valid": boolean

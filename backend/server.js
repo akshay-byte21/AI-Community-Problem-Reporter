@@ -367,7 +367,7 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
   
             Respond ONLY with a JSON object in this exact format:
             {
-                "reason": "Clear message to the agent. If rejected, clearly state exactly why it was rejected (e.g. 'The background buildings on the right do not match the original photo on the left' or 'The pothole is still visible').",
+                "reason": "Clear message to the agent. If rejected because the images show completely different things, format it exactly like: 'The first image is a [describe first image], but the second image is a [describe second image].' (e.g. 'The first image is a pothole on a street, but the second image is a keyboard.')",
                 "environment_match": boolean,
                 "issue_resolved": boolean,
                 "valid": boolean

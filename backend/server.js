@@ -11,6 +11,7 @@ const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const compression = require('compression');
 const NodeCache = require('node-cache');
+const Jimp = require('jimp');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -327,23 +328,62 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
       while (!success && attempts < 3) {
         attempts++;
         try {
-          const promptText = `You are a strict, highly critical AI verification system. You are auditing a civic worker who might be trying to cheat the system.
-            Analyze this image (the 'After' state uploaded by the worker as proof of resolution).
+          let imageBufferToSend = Array.from(req.file.buffer);
+          let promptText = "";
+
+          if (row.image_url) {
+            // Stitch the before and after images side-by-side
+            const image1 = await Jimp.read(row.image_url); // Before image
+            const image2 = await Jimp.read(req.file.buffer); // After image
+
+            // Resize to standard height to align properly side-by-side
+            image1.resize(Jimp.AUTO, 500);
+            image2.resize(Jimp.AUTO, 500);
+
+            const composite = new Jimp(image1.bitmap.width + image2.bitmap.width, 500, 0x00000000);
+            composite.composite(image1, 0, 0);
+            composite.composite(image2, image1.bitmap.width, 0);
+
+            const stitchedBuffer = await composite.getBufferAsync(Jimp.MIME_JPEG);
+            imageBufferToSend = Array.from(stitchedBuffer);
+
+            promptText = `You are a strict, highly critical AI verification system auditing a civic worker who might be trying to cheat.
+            Analyze this side-by-side composite image. 
+            The LEFT half is the 'Before' state (the reported issue).
+            The RIGHT half is the 'After' state (uploaded as proof of resolution).
             Issue category: '${row.category}'. Description: '${row.description}'. 
   
             Perform a step-by-step visual audit:
-            1. Issue Resolution: Look at the specific civic issue (e.g. the pothole). Has it been physically repaired/fixed in this image? (NOTE: Photos of computer screens displaying the repaired issue are acceptable for testing).
+            1. Environment Comparison: Look VERY closely at the surrounding environment, landmarks, buildings, trees, walls, or road patterns in the LEFT half. Does the RIGHT half contain these EXACT SAME landmarks? (NOTE: If BOTH sides show computer screens, that is acceptable for testing, but their displayed contents/environment must match).
+            2. Issue Resolution: If the environments match, look at the specific civic issue (e.g. pothole) in the RIGHT half. Has it been physically repaired/fixed compared to the LEFT half?
   
-            CRITICAL RULE: You must be extremely smart and detailed in your reasoning. If the image is a random object (like a mug, blank wall, random keyboard) and NOT a repaired civic environment, you MUST return "valid": false and provide a clear reason. 
+            CRITICAL RULE: If the environment/surroundings do NOT match between the two halves (e.g. different streets, textures, stock photo), you MUST return "valid": false and provide a clear, descriptive reason to the agent about exactly what did not match. 
   
             Respond ONLY with a JSON object in this exact format:
             {
-                "reason": "Clear and specific message to the agent. If rejected, clearly state exactly why it was rejected.",
+                "reason": "Clear message to the agent. If rejected, clearly state exactly why it was rejected (e.g. 'The background buildings do not match the original photo' or 'The pothole is still visible').",
+                "environment_match": boolean,
+                "issue_resolved": boolean,
+                "valid": boolean
+            }
+            NO conversational text. ONLY raw JSON brackets.`;
+          } else {
+            promptText = `You are a strict, highly critical AI verification system. Analyze this image (the 'After' state uploaded by the worker as proof of resolution).
+            Issue category: '${row.category}'. Description: '${row.description}'. 
+  
+            1. Issue Resolution: Look at the specific civic issue. Has it been physically repaired/fixed in this image? (NOTE: Photos of computer screens displaying the repaired issue are acceptable for testing).
+  
+            CRITICAL RULE: If the image is a random object and NOT a repaired civic environment, return "valid": false and provide a clear reason. 
+  
+            Respond ONLY with a JSON object in this exact format:
+            {
+                "reason": "Clear and specific message to the agent. If rejected, clearly state exactly why.",
                 "environment_match": true,
                 "issue_resolved": boolean,
                 "valid": boolean
             }
             NO conversational text. ONLY raw JSON brackets.`;
+          }
 
           const response = await fetch(
             `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.2-11b-vision-instruct`,
@@ -355,7 +395,7 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
                 },
                 body: JSON.stringify({
                     prompt: promptText,
-                    image: Array.from(req.file.buffer)
+                    image: imageBufferToSend
                 })
             }
           );

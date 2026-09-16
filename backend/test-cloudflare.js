@@ -3,7 +3,7 @@ const fs = require('fs');
 
 async function testCloudflareVision() {
     try {
-        const imagePath = "C:\\Users\\Akshay Ganesh\\.gemini\\antigravity\\brain\\009cf919-decc-4a02-aad7-4f8d050595d4\\.user_uploaded\\media_1788796306948.jpg";
+        const imagePath = "C:\\Users\\Akshay Ganesh\\.gemini\\antigravity\\brain\\009cf919-decc-4a02-aad7-4f8d050595d4\\.user_uploaded\\media_1789566322827.jpg";
         const base64Data = fs.readFileSync(imagePath).toString('base64');
         const buffer = Buffer.from(base64Data, 'base64');
         const imageBufferToSend = Array.from(buffer);

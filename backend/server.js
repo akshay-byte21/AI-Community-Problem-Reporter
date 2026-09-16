@@ -684,7 +684,22 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
             data = JSON.parse(jsonMatch[0]);
             success = true;
         } else {
-            throw new Error("No JSON found in response");
+            // Fallback: Try to parse markdown if the AI failed to use JSON
+            const catMatch = text.match(/\*\*Category:\*\*\s*([^\n]*)/i) || text.match(/Category:\s*([^\n]*)/i);
+            // Description might be multi-line or single-line. We will just take the rest of the paragraph.
+            const descMatch = text.match(/\*\*Description:\*\*\s*([\s\S]*?)(?=\*\*Department:|$)/i) || text.match(/Description:\s*([\s\S]*?)(?=Department:|$)/i);
+            const deptMatch = text.match(/\*\*Department:\*\*\s*([^\n]*)/i) || text.match(/Department:\s*([^\n]*)/i);
+
+            if (catMatch) {
+                data = {
+                    category: catMatch[1].replace(/[\*\_]/g, '').trim(),
+                    description: descMatch ? descMatch[1].trim() : "Civic issue detected.",
+                    department: deptMatch ? deptMatch[1].replace(/[\*\_]/g, '').trim() : "Municipal Corporation"
+                };
+                success = true;
+            } else {
+                throw new Error("No JSON or valid markdown found in response: " + text);
+            }
         }
       } catch (err) {
         console.error(`AI Error (Attempt ${attempts}):`, err);

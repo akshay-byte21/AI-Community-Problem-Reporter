@@ -368,7 +368,7 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
   
             Respond ONLY with a JSON object in this exact format:
             {
-                "reason": "Clear message to the agent. If rejected because images are unrelated, format it exactly like: 'The first image is a [describe first image], but the second image is a [describe second image].' If rejected because environments don't match, specify exactly what is missing (e.g. 'The side footpath in the first image is missing in the second image'). If rejected because it is not repaired, state 'The issue is not yet repaired.'",
+                "reason": "Clear message to the agent. If rejected because images are completely unrelated, the reason MUST be exactly: 'The uploaded image is not relevant to the complaint filed by the user.' If rejected because environments don't match, specify exactly what is missing (e.g. 'The side footpath in the first image is missing in the second image'). If rejected because it is not repaired, state 'The issue is not yet repaired.'",
                 "environment_match": boolean,
                 "issue_resolved": boolean,
                 "valid": boolean

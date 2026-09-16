@@ -5,6 +5,7 @@ import { AuthProvider, AuthContext } from './src/context/AuthContext';
 import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import ResolutionScreen from './src/screens/ResolutionScreen';
+import SplashScreen from './src/screens/SplashScreen';
 
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
@@ -61,12 +62,17 @@ const AppNavigator = () => {
     return token;
   }
 
-  if (isLoading) return null; // Or a splash screen
+  if (isLoading) {
+    return <SplashScreen />;
+  }
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {userToken == null ? (
-        <Stack.Screen name="Login" component={LoginScreen} />
+        <>
+          <Stack.Screen name="Splash" component={SplashScreen} />
+          <Stack.Screen name="Login" component={LoginScreen} />
+        </>
       ) : (
         <>
           <Stack.Screen name="Dashboard" component={DashboardScreen} />

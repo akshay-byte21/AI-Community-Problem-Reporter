@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
 import AuthStack from './AuthStack';
 import AppStack from './AppStack';
+import SplashScreen from '../screens/SplashScreen';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import axios from 'axios';
@@ -58,11 +59,7 @@ const AppNav = () => {
   }
 
   if (isLoading) {
-    return (
-      <View style={{flex:1, justifyContent:'center', alignItems:'center'}}>
-        <ActivityIndicator size={'large'} color="#00aa00" />
-      </View>
-    );
+    return <SplashScreen />;
   }
 
   return (

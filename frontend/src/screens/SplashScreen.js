@@ -1,19 +1,38 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Image, SafeAreaView, Dimensions } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Image, SafeAreaView, Dimensions, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
 
 const SplashScreen = ({ navigation }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
   useEffect(() => {
-    setTimeout(() => {
-      navigation.replace('Login');
-    }, 2500);
-  }, []);
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    if (navigation) {
+      const timer = setTimeout(() => {
+        navigation.replace('Login');
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [navigation, fadeAnim, slideAnim]);
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.topSection}>
+      <Animated.View style={[styles.topSection, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.logoContainer}>
           <View style={styles.logoOuter}>
             <View style={styles.logoInner}>
@@ -29,9 +48,9 @@ const SplashScreen = ({ navigation }) => {
           <Text style={styles.tagline}>Report Problems.</Text>
           <Text style={styles.tagline}>Get Solutions.</Text>
         </View>
-      </View>
+      </Animated.View>
 
-      <View style={styles.bottomSection}>
+      <Animated.View style={[styles.bottomSection, { opacity: fadeAnim }]}>
         <Image 
           source={require('../../assets/splash_bg.jpg')} 
           style={styles.backgroundImage}
@@ -42,7 +61,7 @@ const SplashScreen = ({ navigation }) => {
           <Text style={styles.footerText}>community together...</Text>
           <View style={styles.progressLine} />
         </View>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 };

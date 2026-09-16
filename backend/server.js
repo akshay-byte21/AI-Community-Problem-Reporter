@@ -316,71 +316,62 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
     const row = result.rows[0];
     if (!row) return res.status(404).json({ error: 'Report not found or not assigned to you' });
 
-    const agentApiKey = process.env.GEMINI_AGENT_API_KEY || process.env.GEMINI_API_KEY;
-    if (agentApiKey) {
+    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+    const apiToken = process.env.CLOUDFLARE_USER_API_TOKEN;
+    if (accountId && apiToken) {
       let success = false;
       let verification = null;
       let attempts = 0;
       let lastErrorMsg = "Unknown error";
       
-      while (!success && attempts < 5) {
+      while (!success && attempts < 3) {
         attempts++;
         try {
-          const ai = new GoogleGenAI({ apiKey: agentApiKey });
-          let contents = [
-            `You are a strict, highly critical AI verification system. You are auditing a civic worker who might be trying to cheat the system.
-            Analyze these two images. 
-            FIRST image: The 'Before' state (the reported civic issue). 
-            SECOND image: The 'After' state (uploaded by the worker as proof of resolution).
+          const promptText = `You are a strict, highly critical AI verification system. You are auditing a civic worker who might be trying to cheat the system.
+            Analyze this image (the 'After' state uploaded by the worker as proof of resolution).
             Issue category: '${row.category}'. Description: '${row.description}'. 
   
             Perform a step-by-step visual audit:
-                      1. Environment Comparison: Look VERY closely at the surrounding environment, landmarks, buildings, trees, walls, or road patterns in the FIRST image (the before image). Does the SECOND image contain these EXACT SAME landmarks? (NOTE: If BOTH images are photos of a computer screen, that is acceptable for testing, but their displayed contents/environment must match).
-                      2. Issue Resolution: If the environments match, look at the specific civic issue (e.g. the pothole). Has it been physically repaired/fixed in the SECOND image?
+            1. Issue Resolution: Look at the specific civic issue (e.g. the pothole). Has it been physically repaired/fixed in this image? (NOTE: Photos of computer screens displaying the repaired issue are acceptable for testing).
   
-            CRITICAL RULE: You must be extremely smart and detailed in your reasoning. If the environment does NOT match between the two images (e.g., different streets, different wall textures, different surroundings, or a random stock photo), you MUST return "valid": false and provide a clear, descriptive reason to the agent about exactly what did not match. 
-            You must ONLY return "valid": true if BOTH "environment_match" is true AND "issue_resolved" is true.
+            CRITICAL RULE: You must be extremely smart and detailed in your reasoning. If the image is a random object (like a mug, blank wall, random keyboard) and NOT a repaired civic environment, you MUST return "valid": false and provide a clear reason. 
   
             Respond ONLY with a JSON object in this exact format:
             {
-                "reason": "Clear and specific message to the agent. If rejected, clearly state exactly why it was rejected (e.g. 'The background buildings do not match the original photo' or 'The pothole is still visible').",
-                "environment_match": boolean,
+                "reason": "Clear and specific message to the agent. If rejected, clearly state exactly why it was rejected.",
+                "environment_match": true,
                 "issue_resolved": boolean,
                 "valid": boolean
-            }`
-          ];
-  
-          if (row.image_url) {
-            const originalBase64 = await urlToBase64(row.image_url);
-            contents.push({
-              inlineData: {
-                data: originalBase64,
-                mimeType: "image/jpeg"
-              }
-            });
-          } else {
-             contents[0] = `You are a strict AI verification system. Analyze this image. 
-             Does it show a resolved state of a civic issue related to: '${row.category}' (Description: '${row.description}')? 
-             CRITICAL RULE: If the image is just a random object and NOT a civic environment, you MUST return valid: false.
-             Return a JSON object with 'valid' (boolean) and 'reason' (string explaining why). Reply ONLY with valid JSON.`;
-          }
-  
-          contents.push({
-            inlineData: {
-              data: newBase64,
-              mimeType: mimeType
             }
-          });
+            NO conversational text. ONLY raw JSON brackets.`;
+
+          const response = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.2-11b-vision-instruct`,
+            {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${apiToken}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    prompt: promptText,
+                    image: Array.from(req.file.buffer)
+                })
+            }
+          );
   
-          const response = await ai.models.generateContent({
-            model: 'gemini-3.7-flash',
-            contents: contents
-          });
-  
-          const text = response.text;
-          const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-          verification = JSON.parse(jsonStr);
-          success = true;
+          if (!response.ok) throw new Error(`Cloudflare API Error: ${await response.text()}`);
+          const dataResp = await response.json();
+          if (!dataResp.success) throw new Error(JSON.stringify(dataResp.errors));
+          
+          const text = dataResp.result.response;
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+              verification = JSON.parse(jsonMatch[0]);
+              success = true;
+          } else {
+              throw new Error("No JSON found in response");
+          }
           
         } catch (aiErr) {
           console.error(`Agent AI Verification failed (Attempt ${attempts}):`, aiErr);
@@ -393,14 +384,14 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
           
           const status = aiErr.status || (aiErr.response && aiErr.response.status);
           if (status === 400 || status === 404) {
-              attempts = 5; // Do not retry for client errors to avoid lag
+              attempts = 3; 
           }
-          if (attempts < 5) await sleep(Math.pow(2, attempts) * 1000); // Exponential backoff
+          if (attempts < 3) await sleep(Math.pow(2, attempts) * 1000);
         }
       }
       
       if (!success) {
-        return res.status(400).json({ error: `AI System Error (High Load): ${lastErrorMsg}` });
+        return res.status(400).json({ error: `AI System Error: ${lastErrorMsg}` });
       }
 
       if (!verification.valid) {
@@ -616,32 +607,47 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
     let data = null;
     let attempts = 0;
     
-    while (!success && attempts < 5) {
+    while (!success && attempts < 3) {
       attempts++;
       try {
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        const response = await ai.models.generateContent({
-            model: 'gemini-3.7-flash',
-            contents: [
-                `Analyze this image to determine if it shows a civic issue related to: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, or electricity issues (e.g. fallen poles, cut wires).
+        const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+        const apiToken = process.env.CLOUDFLARE_USER_API_TOKEN;
+        
+        if (!accountId || !apiToken) throw new Error("Cloudflare credentials missing");
+
+        const promptText = `Analyze this image to determine if it shows a civic issue related to: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, or electricity issues.
                 CRITICAL RULES:
                 1. If the image is blurred, return ONLY this JSON: {"category": "Invalid", "description": "Image is blurred. Please take a clear photo.", "department": "None"}
                 2. If the image shows a valid civic issue (including photos of a computer screen or monitor displaying a civic issue), return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (Generate a very detailed, professional, and clear 3-4 sentence report describing the exact severity, location context seen in the photo, and the specific impact on the community to assist the municipal authority), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). 
                 3. If the image DOES NOT relate to any of these civic issues at all (e.g. it is just a plain wall, a mug, or a blank keyboard with no civic issue on the screen), return ONLY this JSON: {"category": "Invalid", "description": "This is not a recognized civic issue.", "department": "None"}. 
-                Return ONLY valid JSON, nothing else.`,
-                {
-                    inlineData: {
-                        data: base64Data,
-                        mimeType: mimeType
-                    }
-                }
-            ],
-            config: {
-                responseMimeType: "application/json",
+                Return ONLY valid JSON, nothing else. NO conversational text like 'Here is the JSON', just the raw JSON brackets.`;
+
+        const response = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.2-11b-vision-instruct`,
+            {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${apiToken}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    prompt: promptText,
+                    image: Array.from(req.file.buffer)
+                })
             }
-        });
+        );
+
+        if (!response.ok) {
+            throw new Error(`Cloudflare API Error: ${await response.text()}`);
+        }
+
+        const dataResp = await response.json();
+        if (!dataResp.success) {
+            throw new Error(JSON.stringify(dataResp.errors));
+        }
+
+        const text = dataResp.result.response;
         
-        const text = response.text;
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
             data = JSON.parse(jsonMatch[0]);
@@ -650,13 +656,13 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
             throw new Error("No JSON found in response");
         }
       } catch (err) {
-        console.error(`Gemini AI Error (Attempt ${attempts}):`, err);
+        console.error(`AI Error (Attempt ${attempts}):`, err);
         const status = err.status || (err.response && err.response.status);
         if (status === 400 || status === 404) {
-            attempts = 5; // Do not retry for client errors to avoid lag
+            attempts = 3; // Do not retry for client errors to avoid lag
         }
-        if (attempts < 5) await sleep(Math.pow(2, attempts) * 1000); // Exponential backoff
-        if (attempts >= 5) {
+        if (attempts < 3) await sleep(Math.pow(2, attempts) * 1000); // Exponential backoff
+        if (attempts >= 3) {
           let niceMessage = "The AI servers are currently overloaded. Please try again later.";
           try {
               const parsed = JSON.parse(err.message);
@@ -673,8 +679,6 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
             department: 'General Administration'
           });
         }
-        // Wait 1 second before retrying (reduced to avoid lag)
-        await new Promise(r => setTimeout(r, 1000));
       }
     }
     

@@ -631,15 +631,6 @@ app.get('/reports/public', async (req, res) => {
 app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Image is required' });
-    
-    if (!process.env.GEMINI_API_KEY) {
-      return res.json({
-        category: 'Road',
-        description: 'To the Municipal Authority,\n\nI am writing to formally request immediate attention to a severe road damage issue...',
-        department: 'Municipal Corporation (Road Maintenance)'
-      });
-    }
-
     const mimeType = req.file.mimetype;
     const base64Data = req.file.buffer.toString("base64");
 

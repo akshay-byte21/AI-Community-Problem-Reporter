@@ -332,36 +332,42 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
           let promptText = "";
 
           if (row.image_url) {
-            // Stitch the before and after images side-by-side
-            const image1 = await Jimp.read(row.image_url); // Before image
+            // Optimize Cloudinary URL to fetch a small 400px wide thumbnail instead of the massive original
+            let optimizedUrl = row.image_url;
+            if (optimizedUrl.includes('/upload/')) {
+                optimizedUrl = optimizedUrl.replace('/upload/', '/upload/c_scale,w_400/');
+            }
+
+            const image1 = await Jimp.read(optimizedUrl); // Fast, tiny Before image
             const image2 = await Jimp.read(req.file.buffer); // After image
 
-            // Resize to standard height to align properly side-by-side
-            image1.resize(Jimp.AUTO, 500);
-            image2.resize(Jimp.AUTO, 500);
+            // Resize to standard width to align properly side-by-side and drastically reduce lag
+            image1.resize(400, Jimp.AUTO);
+            image2.resize(400, Jimp.AUTO);
 
-            const composite = new Jimp(image1.bitmap.width + image2.bitmap.width, 500, 0x00000000);
+            const compositeHeight = Math.max(image1.bitmap.height, image2.bitmap.height);
+            const composite = new Jimp(800, compositeHeight, 0xFFFFFFFF); // White background
             composite.composite(image1, 0, 0);
-            composite.composite(image2, image1.bitmap.width, 0);
+            composite.composite(image2, 400, 0);
 
             const stitchedBuffer = await composite.getBufferAsync(Jimp.MIME_JPEG);
             imageBufferToSend = Array.from(stitchedBuffer);
 
             promptText = `You are a strict, highly critical AI verification system auditing a civic worker who might be trying to cheat.
             Analyze this side-by-side composite image. 
-            The LEFT half is the 'Before' state (the reported issue).
-            The RIGHT half is the 'After' state (uploaded as proof of resolution).
+            The LEFT half is the ORIGINAL 'Before' state (the reported issue).
+            The RIGHT half is the NEW 'After' state (uploaded as proof of resolution).
             Issue category: '${row.category}'. Description: '${row.description}'. 
   
             Perform a step-by-step visual audit:
-            1. Environment Comparison: Look VERY closely at the surrounding environment, landmarks, buildings, trees, walls, or road patterns in the LEFT half. Does the RIGHT half contain these EXACT SAME landmarks? (NOTE: If BOTH sides show computer screens, that is acceptable for testing, but their displayed contents/environment must match).
+            1. Environment Comparison: Look VERY closely at the surrounding environment, landmarks, buildings, trees, walls, or road patterns in the LEFT half. Does the RIGHT half contain these EXACT SAME landmarks? (NOTE: If BOTH sides show computer screens or monitors, they must be displaying the EXACT same background/environment).
             2. Issue Resolution: If the environments match, look at the specific civic issue (e.g. pothole) in the RIGHT half. Has it been physically repaired/fixed compared to the LEFT half?
   
-            CRITICAL RULE: If the environment/surroundings do NOT match between the two halves (e.g. different streets, textures, stock photo), you MUST return "valid": false and provide a clear, descriptive reason to the agent about exactly what did not match. 
+            CRITICAL RULE: If the environment/surroundings do NOT clearly match between the left and right halves (e.g. different streets, textures, angles that make it impossible to verify, or stock photos), you MUST return "valid": false and provide a clear, descriptive reason to the agent about exactly what did not match. 
   
             Respond ONLY with a JSON object in this exact format:
             {
-                "reason": "Clear message to the agent. If rejected, clearly state exactly why it was rejected (e.g. 'The background buildings do not match the original photo' or 'The pothole is still visible').",
+                "reason": "Clear message to the agent. If rejected, clearly state exactly why it was rejected (e.g. 'The background buildings on the right do not match the original photo on the left' or 'The pothole is still visible').",
                 "environment_match": boolean,
                 "issue_resolved": boolean,
                 "valid": boolean
@@ -410,7 +416,23 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
               verification = JSON.parse(jsonMatch[0]);
               success = true;
           } else {
-              throw new Error("No JSON found in response");
+              // Fallback for markdown
+              const reasonMatch = text.match(/\*\*Reason:\*\*\s*(.*)/i) || text.match(/Reason:\s*(.*)/i);
+              const envMatch = text.match(/\*\*Environment Match:\*\*\s*(.*)/i) || text.match(/Environment Match:\s*(.*)/i) || text.match(/"environment_match":\s*(true|false)/i);
+              const resolvedMatch = text.match(/\*\*Issue Resolved:\*\*\s*(.*)/i) || text.match(/Issue Resolved:\s*(.*)/i) || text.match(/"issue_resolved":\s*(true|false)/i);
+              const validMatch = text.match(/\*\*Valid:\*\*\s*(.*)/i) || text.match(/Valid:\s*(.*)/i) || text.match(/"valid":\s*(true|false)/i);
+              
+              if (reasonMatch) {
+                  verification = {
+                      reason: reasonMatch[1].replace(/[\*\_]/g, '').trim(),
+                      environment_match: envMatch ? (envMatch[1].toLowerCase().includes('true')) : false,
+                      issue_resolved: resolvedMatch ? (resolvedMatch[1].toLowerCase().includes('true')) : false,
+                      valid: validMatch ? (validMatch[1].toLowerCase().includes('true')) : false
+                  };
+                  success = true;
+              } else {
+                  throw new Error("No JSON or valid markdown found in response: " + text);
+              }
           }
           
         } catch (aiErr) {

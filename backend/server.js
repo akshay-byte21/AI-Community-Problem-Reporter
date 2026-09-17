@@ -355,41 +355,29 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
 
             promptText = `You are a strict, highly critical AI verification system auditing a civic worker who might be trying to cheat.
             Analyze this side-by-side composite image. 
-            The LEFT half is the ORIGINAL 'Before' state (the reported issue).
-            The RIGHT half is the NEW 'After' state (uploaded as proof of resolution).
+            The LEFT half is the 'Before' state (the reported issue).
+            The RIGHT half is the 'After' state (uploaded as proof of resolution).
             Issue category: '${row.category}'. Description: '${row.description}'. 
-  
+
             Perform a step-by-step visual audit:
-            1. Relevance Check: Is the second (RIGHT) image related to the first (LEFT) image at all? If one shows a burst water pipe and the other shows a pothole, they are completely unrelated.
-            2. Environment Comparison: If they are related, look VERY closely at the surrounding environment. Do the backgrounds match perfectly? Check for exact matches in lanes, side footpaths, road textures, buildings, and trees. (NOTE: If BOTH sides show computer screens or monitors, they must be displaying the EXACT same background/environment).
-            3. Issue Resolution: If the environments perfectly match, look at the specific civic issue (e.g., pothole, garbage, water pipe) in the RIGHT half. Has it been physically repaired and completely fixed in the second image?
-  
-            CRITICAL RULE: If the images are unrelated, OR the environment (lanes/footpaths/background) does not match, OR the issue is not repaired, you MUST return "valid": false and reject it.
-  
+            1. Environment Comparison: Look VERY closely at the surrounding environment, landmarks, buildings, trees, walls, or road patterns in the FIRST image (the before image). Does the SECOND image contain these EXACT SAME landmarks? (NOTE: If BOTH images are photos of a computer screen, that is acceptable for testing, but their displayed contents/environment must match).
+            2. Issue Resolution: If the environments match, look at the specific civic issue (e.g. the pothole). Has it been physically repaired/fixed in the SECOND image?
+
+            CRITICAL RULE: You must be extremely smart and detailed in your reasoning. If the environment does NOT match between the two images (e.g., different streets, different wall textures, different surroundings, or a random stock photo), you MUST return "valid": false and provide a clear, descriptive reason to the agent about exactly what did not match. 
+
             Respond ONLY with a JSON object in this exact format:
             {
-                "reason": "Clear message to the agent. If rejected because images are completely unrelated, the reason MUST be exactly: 'The uploaded image is not relevant to the complaint filed by the user.' If rejected because environments don't match, specify exactly what is missing (e.g. 'The side footpath in the first image is missing in the second image'). If rejected because it is not repaired, state 'The issue is not yet repaired.'",
+                "reason": "Clear message to the agent. If rejected, clearly state exactly why it was rejected (e.g. 'The background buildings do not match the original photo' or 'The pothole is still visible').",
                 "environment_match": boolean,
                 "issue_resolved": boolean,
                 "valid": boolean
             }
             NO conversational text. ONLY raw JSON brackets.`;
           } else {
-            promptText = `You are a strict, highly critical AI verification system. Analyze this image (the 'After' state uploaded by the worker as proof of resolution).
-            Issue category: '${row.category}'. Description: '${row.description}'. 
-  
-            1. Issue Resolution: Look at the specific civic issue. Has it been physically repaired/fixed in this image? (NOTE: Photos of computer screens displaying the repaired issue are acceptable for testing).
-  
-            CRITICAL RULE: If the image is a random object and NOT a repaired civic environment, return "valid": false and provide a clear reason. 
-  
-            Respond ONLY with a JSON object in this exact format:
-            {
-                "reason": "Clear and specific message to the agent. If rejected, clearly state exactly why.",
-                "environment_match": true,
-                "issue_resolved": boolean,
-                "valid": boolean
-            }
-            NO conversational text. ONLY raw JSON brackets.`;
+            promptText = `You are a strict AI verification system. Analyze this image. 
+            Does it show a resolved state of a civic issue related to: '${row.category}' (Description: '${row.description}')? 
+            CRITICAL RULE: If the image is just a random object and NOT a civic environment, you MUST return valid: false.
+            Return a JSON object with 'valid' (boolean) and 'reason' (string explaining why). Reply ONLY with valid JSON.`;
           }
 
           const response = await fetch(
@@ -669,12 +657,12 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
         
         if (!accountId || !apiToken) throw new Error("Cloudflare credentials missing");
 
-        const promptText = `Analyze this image to determine if it shows a civic issue related to: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, or electricity issues.
-                CRITICAL RULES:
-                1. If the image is blurred, return ONLY this JSON: {"category": "Invalid", "description": "Image is blurred. Please take a clear photo.", "department": "None"}
-                2. If the image shows a valid civic issue (including photos of a computer screen or monitor displaying a civic issue), return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (Generate a very detailed, professional, and clear 3-4 sentence report describing the exact severity, location context seen in the photo, and the specific impact on the community to assist the municipal authority), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). 
-                3. If the image DOES NOT relate to any of these civic issues at all (e.g. it is just a plain wall, a mug, or a blank keyboard with no civic issue on the screen), return ONLY this JSON: {"category": "Invalid", "description": "This is not a recognized civic issue.", "department": "None"}. 
-                Return ONLY valid JSON, nothing else. NO conversational text like 'Here is the JSON', just the raw JSON brackets.`;
+        const promptText = `Analyze this image to determine if it shows a civic issue related to: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, or electricity issues (e.g. fallen poles, cut wires).
+        CRITICAL RULES:
+        1. If the image is blurred, return ONLY this JSON: {"category": "Invalid", "description": "Image is blurred. Please take a clear photo.", "department": "None"}
+        2. If the image shows a valid civic issue (including photos of a computer screen or monitor displaying a civic issue), return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (Generate a very detailed, professional, and clear 3-4 sentence report describing the exact severity, location context seen in the photo, and the specific impact on the community to assist the municipal authority), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). 
+        3. If the image DOES NOT relate to any of these civic issues at all (e.g. it is just a plain wall, a mug, or a blank keyboard with no civic issue on the screen), return ONLY this JSON: {"category": "Invalid", "description": "This is not a recognized civic issue.", "department": "None"}. 
+        Return ONLY valid JSON, nothing else.`;
 
         const response = await fetch(
             `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.2-11b-vision-instruct`,

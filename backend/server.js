@@ -59,13 +59,9 @@ async function urlToBase64(url) {
   return Buffer.from(buffer).toString('base64');
 }
 
-// Helper function to send Expo Push Notification
-async function sendPushNotification(userId, title, body) {
+// Helper function to send Expo Push Notification to a direct token
+async function sendPushNotificationToToken(pushToken, title, body) {
   try {
-    const result = await db.query('SELECT push_token FROM users WHERE id = $1', [userId]);
-    if (result.rows.length === 0) return;
-    const pushToken = result.rows[0].push_token;
-    
     if (pushToken && pushToken.startsWith('ExponentPushToken')) {
       const message = {
         to: pushToken,
@@ -83,10 +79,22 @@ async function sendPushNotification(userId, title, body) {
         },
         body: JSON.stringify(message),
       });
-      console.log(`Sent push notification to user ${userId}`);
+      console.log(`Sent push notification to ${pushToken}`);
     }
   } catch (err) {
     console.error('Error sending push notification:', err);
+  }
+}
+
+// Helper function to send Expo Push Notification by User ID
+async function sendPushNotification(userId, title, body) {
+  try {
+    const result = await db.query('SELECT push_token FROM users WHERE id = $1', [userId]);
+    if (result.rows.length === 0) return;
+    const pushToken = result.rows[0].push_token;
+    await sendPushNotificationToToken(pushToken, title, body);
+  } catch (err) {
+    console.error('Error in sendPushNotification lookup:', err);
   }
 }
 
@@ -514,7 +522,7 @@ app.post('/admin/reports/:id/assign', async (req, res) => {
     // Notify the agent
     const staffRes = await db.query(`SELECT push_token FROM staff WHERE id = $1`, [staff_id]);
     if (staffRes.rows.length > 0 && staffRes.rows[0].push_token) {
-      await sendPushNotification(staffRes.rows[0].push_token, 'New Assignment 📋', `You have been assigned to a ${result.rows[0].category} issue at ${result.rows[0].address}`);
+      await sendPushNotificationToToken(staffRes.rows[0].push_token, 'New Assignment 📋', `You have been assigned to a ${result.rows[0].category} issue at ${result.rows[0].address}`);
     }
     
     clearCache(); // Invalidate cache on update
@@ -833,7 +841,7 @@ app.put('/admin/reports/:id/assign', async (req, res) => {
     // Notify the agent
     const staffRes = await db.query(`SELECT push_token FROM staff WHERE id = $1`, [staff_id]);
     if (staffRes.rows.length > 0 && staffRes.rows[0].push_token) {
-      await sendPushNotification(staffRes.rows[0].push_token, 'New Assignment 📋', `You have been assigned to a ${result.rows[0]?.category} issue at ${result.rows[0]?.address}`);
+      await sendPushNotificationToToken(staffRes.rows[0].push_token, 'New Assignment 📋', `You have been assigned to a ${result.rows[0]?.category} issue at ${result.rows[0]?.address}`);
     }
     
     clearCache(); // Invalidate cache on update! This fixes the assignment bug!

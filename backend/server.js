@@ -367,11 +367,12 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
             The RIGHT half is the 'After' state (uploaded as proof of resolution).
             Issue category: '${row.category}'. Description: '${row.description}'. 
 
-            Perform a step-by-step visual audit:
-            1. Environment Comparison: Look VERY closely at the surrounding environment, landmarks, buildings, trees, walls, or road patterns in the FIRST image (the before image). Does the SECOND image contain these EXACT SAME landmarks? (NOTE: If BOTH images are photos of a computer screen, that is acceptable for testing, but their displayed contents/environment must match).
-            2. Issue Resolution: If the environments match, look at the specific civic issue (e.g. the pothole). Has it been physically repaired/fixed in the SECOND image?
+            Perform a step-by-step visual audit exactly as follows:
+            1. Feature Extraction: Map out the permanent structural anchors in the FIRST (LEFT) image, such as road curves, lines, curbs, guardrails, trees, walls, or specific architectural landmarks.
+            2. Feature Matching (Environment Check): Scan the SECOND (RIGHT) image for those exact same structural anchors. Do the mathematical geometry, perspective, and objects match perfectly? (NOTE: If BOTH images are photos of a computer screen, that is acceptable for testing, but their displayed contents/environment must match).
+            3. Delta Analysis (Resolution Check): If the environment matches perfectly, compare the specific area where the civic issue was in the FIRST image. Has the damage or issue been physically repaired/fixed in the SECOND image?
 
-            CRITICAL RULE: You must be extremely smart and detailed in your reasoning. If the environment does NOT match between the two images (e.g., different streets, different wall textures, different surroundings, or a random stock photo), you MUST return "valid": false and provide a clear, descriptive reason to the agent about exactly what did not match. 
+            CRITICAL RULE: You must be extremely smart and detailed in your reasoning. If the structural anchors in the SECOND image do not perfectly match the FIRST image (e.g., missing guardrail, different road curve, missing trees, different background), you MUST return "valid": false and provide a clear, descriptive reason to the agent about exactly what did not match. 
 
             Respond ONLY with a JSON object in this exact format:
             {

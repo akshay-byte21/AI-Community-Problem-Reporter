@@ -386,7 +386,13 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
             promptText = `You are a strict AI verification system. Analyze this image. 
             Does it show a resolved state of a civic issue related to: '${row.category}' (Description: '${row.description}')? 
             CRITICAL RULE: If the image is just a random object and NOT a civic environment, you MUST return valid: false.
-            Return a JSON object with 'valid' (boolean) and 'reason' (string explaining why). Reply ONLY with valid JSON.`;
+            
+            Respond ONLY with a JSON object in this exact format:
+            {
+                "reason": "string explaining why",
+                "valid": boolean
+            }
+            OUTPUT NOTHING EXCEPT THE JSON. DO NOT INCLUDE ANY CONVERSATIONAL TEXT OR LISTS. YOU MUST START YOUR RESPONSE WITH { AND END WITH }.`;
           }
 
           const response = await fetch(
@@ -432,8 +438,8 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
                   // Ultimate Fallback: The AI ignored JSON and Markdown rules entirely and just output a paragraph.
                   // We will parse the raw text to guess the validity, and provide the text as the reason.
                   const textLower = text.toLowerCase();
-                  // Check if the text sounds like a rejection (does not match, missing, cannot determine)
-                  const isRejected = textLower.includes('does not match') || textLower.includes('not match') || textLower.includes('missing') || textLower.includes('not possible') || textLower.includes('are not visible');
+                  // Check if the text sounds like a rejection (does not match, cannot determine, invalid)
+                  const isRejected = textLower.includes('does not match') || textLower.includes('not match') || textLower.includes('not possible') || textLower.includes('are not visible') || textLower.includes('cannot determine') || textLower.includes('invalid');
                   
                   verification = {
                       reason: text.replace(/[\*\_]/g, '').trim(),

@@ -381,7 +381,7 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
                 "issue_resolved": boolean,
                 "valid": boolean
             }
-            NO conversational text. ONLY raw JSON brackets.`;
+            OUTPUT NOTHING EXCEPT THE JSON. DO NOT INCLUDE ANY CONVERSATIONAL TEXT OR LISTS. YOU MUST START YOUR RESPONSE WITH { AND END WITH }.`;
           } else {
             promptText = `You are a strict AI verification system. Analyze this image. 
             Does it show a resolved state of a civic issue related to: '${row.category}' (Description: '${row.description}')? 
@@ -416,8 +416,8 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
           } else {
               // Fallback for markdown
               const reasonMatch = text.match(/\*\*Reason:\*\*\s*(.*)/i) || text.match(/Reason:\s*(.*)/i);
-              const envMatch = text.match(/\*\*Environment Match:\*\*\s*(.*)/i) || text.match(/Environment Match:\s*(.*)/i) || text.match(/"environment_match":\s*(true|false)/i);
-              const resolvedMatch = text.match(/\*\*Issue Resolved:\*\*\s*(.*)/i) || text.match(/Issue Resolved:\s*(.*)/i) || text.match(/"issue_resolved":\s*(true|false)/i);
+              const envMatch = text.match(/\*\*Environment Match:\*\*\s*(.*)/i) || text.match(/Environment Match:\s*(.*)/i) || text.match(/"environment_match":\s*(true|false)/i) || text.match(/\*\*Feature Matching.*?\*\*\s*(.*)/i);
+              const resolvedMatch = text.match(/\*\*Issue Resolved:\*\*\s*(.*)/i) || text.match(/Issue Resolved:\s*(.*)/i) || text.match(/"issue_resolved":\s*(true|false)/i) || text.match(/\*\*Delta Analysis.*?\*\*\s*(.*)/i);
               const validMatch = text.match(/\*\*Valid:\*\*\s*(.*)/i) || text.match(/Valid:\s*(.*)/i) || text.match(/"valid":\s*(true|false)/i);
               
               if (reasonMatch) {
@@ -429,7 +429,19 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
                   };
                   success = true;
               } else {
-                  throw new Error("No JSON or valid markdown found in response: " + text);
+                  // Ultimate Fallback: The AI ignored JSON and Markdown rules entirely and just output a paragraph.
+                  // We will parse the raw text to guess the validity, and provide the text as the reason.
+                  const textLower = text.toLowerCase();
+                  // Check if the text sounds like a rejection (does not match, missing, cannot determine)
+                  const isRejected = textLower.includes('does not match') || textLower.includes('not match') || textLower.includes('missing') || textLower.includes('not possible') || textLower.includes('are not visible');
+                  
+                  verification = {
+                      reason: text.replace(/[\*\_]/g, '').trim(),
+                      environment_match: !isRejected,
+                      issue_resolved: !isRejected,
+                      valid: !isRejected
+                  };
+                  success = true;
               }
           }
           

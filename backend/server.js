@@ -414,61 +414,78 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
           const dataResp = await response.json();
           if (!dataResp.success) throw new Error(JSON.stringify(dataResp.errors));
           
-          const text = dataResp.result.response;
-          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          let text = dataResp.result.response;
           let parsedSuccessfully = false;
           
-          if (jsonMatch) {
-              try {
-                  verification = JSON.parse(jsonMatch[0]);
-                  success = true;
-                  parsedSuccessfully = true;
-              } catch (parseError) {
-                  console.warn("AI output contained {} but was not valid JSON. Falling back to text parser.", parseError.message);
-              }
+          // If Cloudflare natively returned the JSON as an object instead of a string
+          if (typeof text === 'object' && text !== null) {
+              verification = {
+                  reason: text.reason || "Verification processed.",
+                  environment_match: text.environment_match !== false,
+                  issue_resolved: text.issue_resolved !== false,
+                  valid: text.valid === true
+              };
+              success = true;
+              parsedSuccessfully = true;
           }
           
           if (!parsedSuccessfully) {
-              // Fallback for markdown
-              const reasonMatch = text.match(/\*\*Reason:\*\*\s*(.*)/i) || text.match(/Reason:\s*(.*)/i);
-              const envMatch = text.match(/\*\*Environment Match:\*\*\s*(.*)/i) || text.match(/Environment Match:\s*(.*)/i) || text.match(/"environment_match":\s*(true|false)/i) || text.match(/\*\*Feature Matching.*?\*\*\s*(.*)/i);
-              const resolvedMatch = text.match(/\*\*Issue Resolved:\*\*\s*(.*)/i) || text.match(/Issue Resolved:\s*(.*)/i) || text.match(/"issue_resolved":\s*(true|false)/i) || text.match(/\*\*Delta Analysis.*?\*\*\s*(.*)/i);
-              const validMatch = text.match(/\*\*Valid:\*\*\s*(.*)/i) || text.match(/Valid:\s*(.*)/i) || text.match(/"valid":\s*(true|false)/i);
+              if (typeof text !== 'string') text = String(text);
               
-              if (reasonMatch) {
-                  verification = {
-                      reason: reasonMatch[1].replace(/[\*\_]/g, '').trim(),
-                      environment_match: envMatch ? (envMatch[1].toLowerCase().includes('true')) : false,
-                      issue_resolved: resolvedMatch ? (resolvedMatch[1].toLowerCase().includes('true')) : false,
-                      valid: validMatch ? (validMatch[1].toLowerCase().includes('true')) : false
-                  };
-                  success = true;
-              } else {
-                  // Ultimate Fallback: The AI ignored JSON and Markdown rules entirely and just output a paragraph.
-                  // We will parse the raw text to guess the validity, and extract a short summary for the reason.
-                  const textLower = text.toLowerCase();
-                  // Check if the text sounds like a rejection (does not match, cannot determine, invalid)
-                  const isRejected = textLower.includes('does not match') || textLower.includes('not match') || textLower.includes('not possible') || textLower.includes('are not visible') || textLower.includes('cannot determine') || textLower.includes('invalid');
-                  
-                  let extractedReason = "";
-                  // Try to pull out the explicit "reason": "..." value from the broken JSON string
-                  const brokenJsonReason = text.match(/"reason"\s*:\s*"([^"]*)"/i);
-                  if (brokenJsonReason && brokenJsonReason[1].trim().length > 0) {
-                      extractedReason = brokenJsonReason[1].trim();
-                  } else {
-                      // If we can't find a reason string, provide a clean, short hardcoded summary
-                      extractedReason = isRejected 
-                          ? "Environment does not match or the issue is not fully resolved. Please ensure the structural layout matches the reported issue exactly and retake the photo."
-                          : "Verification successful. The issue appears to be resolved.";
+              const jsonMatch = text.match(/\{[\s\S]*\}/);
+              
+              if (jsonMatch) {
+                  try {
+                      verification = JSON.parse(jsonMatch[0]);
+                      success = true;
+                      parsedSuccessfully = true;
+                  } catch (parseError) {
+                      console.warn("AI output contained {} but was not valid JSON. Falling back to text parser.", parseError.message);
                   }
+              }
+              
+              if (!parsedSuccessfully) {
+                  // Fallback for markdown
+                  const reasonMatch = text.match(/\*\*Reason:\*\*\s*(.*)/i) || text.match(/Reason:\s*(.*)/i);
+                  const envMatch = text.match(/\*\*Environment Match:\*\*\s*(.*)/i) || text.match(/Environment Match:\s*(.*)/i) || text.match(/"environment_match":\s*(true|false)/i) || text.match(/\*\*Feature Matching.*?\*\*\s*(.*)/i);
+                  const resolvedMatch = text.match(/\*\*Issue Resolved:\*\*\s*(.*)/i) || text.match(/Issue Resolved:\s*(.*)/i) || text.match(/"issue_resolved":\s*(true|false)/i) || text.match(/\*\*Delta Analysis.*?\*\*\s*(.*)/i);
+                  const validMatch = text.match(/\*\*Valid:\*\*\s*(.*)/i) || text.match(/Valid:\s*(.*)/i) || text.match(/"valid":\s*(true|false)/i);
                   
-                  verification = {
-                      reason: extractedReason,
-                      environment_match: !isRejected,
-                      issue_resolved: !isRejected,
-                      valid: !isRejected
-                  };
-                  success = true;
+                  if (reasonMatch) {
+                      verification = {
+                          reason: reasonMatch[1].replace(/[\*\_]/g, '').trim(),
+                          environment_match: envMatch ? (envMatch[1].toLowerCase().includes('true')) : false,
+                          issue_resolved: resolvedMatch ? (resolvedMatch[1].toLowerCase().includes('true')) : false,
+                          valid: validMatch ? (validMatch[1].toLowerCase().includes('true')) : false
+                      };
+                      success = true;
+                  } else {
+                      // Ultimate Fallback: The AI ignored JSON and Markdown rules entirely and just output a paragraph.
+                      // We will parse the raw text to guess the validity, and extract a short summary for the reason.
+                      const textLower = text.toLowerCase();
+                      // Check if the text sounds like a rejection (does not match, cannot determine, invalid)
+                      const isRejected = textLower.includes('does not match') || textLower.includes('not match') || textLower.includes('not possible') || textLower.includes('are not visible') || textLower.includes('cannot determine') || textLower.includes('invalid');
+                      
+                      let extractedReason = "";
+                      // Try to pull out the explicit "reason": "..." value from the broken JSON string
+                      const brokenJsonReason = text.match(/"reason"\s*:\s*"([^"]*)"/i);
+                      if (brokenJsonReason && brokenJsonReason[1].trim().length > 0) {
+                          extractedReason = brokenJsonReason[1].trim();
+                      } else {
+                          // If we can't find a reason string, provide a clean, short hardcoded summary
+                          extractedReason = isRejected 
+                              ? "Environment does not match or the issue is not fully resolved. Please ensure the structural layout matches the reported issue exactly and retake the photo."
+                              : "Verification successful. The issue appears to be resolved.";
+                      }
+                      
+                      verification = {
+                          reason: extractedReason,
+                          environment_match: !isRejected,
+                          issue_resolved: !isRejected,
+                          valid: !isRejected
+                      };
+                      success = true;
+                  }
               }
           }
           
@@ -736,37 +753,52 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
             throw new Error(JSON.stringify(dataResp.errors));
         }
 
-        const text = dataResp.result.response;
-        
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        let text = dataResp.result.response;
         let parsedSuccessfully = false;
 
-        if (jsonMatch) {
-            try {
-                data = JSON.parse(jsonMatch[0]);
-                success = true;
-                parsedSuccessfully = true;
-            } catch (parseError) {
-                console.warn("User AI output contained {} but was not valid JSON. Falling back to text parser.", parseError.message);
-            }
+        // If Cloudflare natively returned the JSON as an object instead of a string
+        if (typeof text === 'object' && text !== null) {
+            data = {
+                category: text.category || "Invalid",
+                description: text.description || "Civic issue detected.",
+                department: text.department || "Municipal Corporation"
+            };
+            success = true;
+            parsedSuccessfully = true;
         }
-        
-        if (!parsedSuccessfully) {
-            // Fallback: Try to parse markdown if the AI failed to use JSON
-            const catMatch = text.match(/\*\*Category:\*\*\s*([^\n]*)/i) || text.match(/Category:\s*([^\n]*)/i);
-            // Description might be multi-line or single-line. We will just take the rest of the paragraph.
-            const descMatch = text.match(/\*\*Description:\*\*\s*([\s\S]*?)(?=\*\*Department:|$)/i) || text.match(/Description:\s*([\s\S]*?)(?=Department:|$)/i);
-            const deptMatch = text.match(/\*\*Department:\*\*\s*([^\n]*)/i) || text.match(/Department:\s*([^\n]*)/i);
 
-            if (catMatch) {
-                data = {
-                    category: catMatch[1].replace(/[\*\_]/g, '').trim(),
-                    description: descMatch ? descMatch[1].trim() : "Civic issue detected.",
-                    department: deptMatch ? deptMatch[1].replace(/[\*\_]/g, '').trim() : "Municipal Corporation"
-                };
-                success = true;
-            } else {
-                throw new Error("No JSON or valid markdown found in response: " + text);
+        if (!parsedSuccessfully) {
+            if (typeof text !== 'string') text = String(text);
+            
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+
+            if (jsonMatch) {
+                try {
+                    data = JSON.parse(jsonMatch[0]);
+                    success = true;
+                    parsedSuccessfully = true;
+                } catch (parseError) {
+                    console.warn("User AI output contained {} but was not valid JSON. Falling back to text parser.", parseError.message);
+                }
+            }
+            
+            if (!parsedSuccessfully) {
+                // Fallback: Try to parse markdown if the AI failed to use JSON
+                const catMatch = text.match(/\*\*Category:\*\*\s*([^\n]*)/i) || text.match(/Category:\s*([^\n]*)/i);
+                // Description might be multi-line or single-line. We will just take the rest of the paragraph.
+                const descMatch = text.match(/\*\*Description:\*\*\s*([\s\S]*?)(?=\*\*Department:|$)/i) || text.match(/Description:\s*([\s\S]*?)(?=Department:|$)/i);
+                const deptMatch = text.match(/\*\*Department:\*\*\s*([^\n]*)/i) || text.match(/Department:\s*([^\n]*)/i);
+
+                if (catMatch) {
+                    data = {
+                        category: catMatch[1].replace(/[\*\_]/g, '').trim(),
+                        description: descMatch ? descMatch[1].trim() : "Civic issue detected.",
+                        department: deptMatch ? deptMatch[1].replace(/[\*\_]/g, '').trim() : "Municipal Corporation"
+                    };
+                    success = true;
+                } else {
+                    throw new Error("No JSON or valid markdown found in response: " + text);
+                }
             }
         }
       } catch (err) {

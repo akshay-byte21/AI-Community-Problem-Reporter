@@ -445,13 +445,25 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
                   success = true;
               } else {
                   // Ultimate Fallback: The AI ignored JSON and Markdown rules entirely and just output a paragraph.
-                  // We will parse the raw text to guess the validity, and provide the text as the reason.
+                  // We will parse the raw text to guess the validity, and extract a short summary for the reason.
                   const textLower = text.toLowerCase();
                   // Check if the text sounds like a rejection (does not match, cannot determine, invalid)
                   const isRejected = textLower.includes('does not match') || textLower.includes('not match') || textLower.includes('not possible') || textLower.includes('are not visible') || textLower.includes('cannot determine') || textLower.includes('invalid');
                   
+                  let extractedReason = "";
+                  // Try to pull out the explicit "reason": "..." value from the broken JSON string
+                  const brokenJsonReason = text.match(/"reason"\s*:\s*"([^"]*)"/i);
+                  if (brokenJsonReason && brokenJsonReason[1].trim().length > 0) {
+                      extractedReason = brokenJsonReason[1].trim();
+                  } else {
+                      // If we can't find a reason string, provide a clean, short hardcoded summary
+                      extractedReason = isRejected 
+                          ? "Environment does not match or the issue is not fully resolved. Please ensure the structural layout matches the reported issue exactly and retake the photo."
+                          : "Verification successful. The issue appears to be resolved.";
+                  }
+                  
                   verification = {
-                      reason: text.replace(/[\*\_]/g, '').trim(),
+                      reason: extractedReason,
                       environment_match: !isRejected,
                       issue_resolved: !isRejected,
                       valid: !isRejected

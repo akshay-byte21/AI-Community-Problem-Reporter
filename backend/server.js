@@ -416,10 +416,19 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
           
           const text = dataResp.result.response;
           const jsonMatch = text.match(/\{[\s\S]*\}/);
+          let parsedSuccessfully = false;
+          
           if (jsonMatch) {
-              verification = JSON.parse(jsonMatch[0]);
-              success = true;
-          } else {
+              try {
+                  verification = JSON.parse(jsonMatch[0]);
+                  success = true;
+                  parsedSuccessfully = true;
+              } catch (parseError) {
+                  console.warn("AI output contained {} but was not valid JSON. Falling back to text parser.", parseError.message);
+              }
+          }
+          
+          if (!parsedSuccessfully) {
               // Fallback for markdown
               const reasonMatch = text.match(/\*\*Reason:\*\*\s*(.*)/i) || text.match(/Reason:\s*(.*)/i);
               const envMatch = text.match(/\*\*Environment Match:\*\*\s*(.*)/i) || text.match(/Environment Match:\s*(.*)/i) || text.match(/"environment_match":\s*(true|false)/i) || text.match(/\*\*Feature Matching.*?\*\*\s*(.*)/i);
@@ -718,10 +727,19 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
         const text = dataResp.result.response;
         
         const jsonMatch = text.match(/\{[\s\S]*\}/);
+        let parsedSuccessfully = false;
+
         if (jsonMatch) {
-            data = JSON.parse(jsonMatch[0]);
-            success = true;
-        } else {
+            try {
+                data = JSON.parse(jsonMatch[0]);
+                success = true;
+                parsedSuccessfully = true;
+            } catch (parseError) {
+                console.warn("User AI output contained {} but was not valid JSON. Falling back to text parser.", parseError.message);
+            }
+        }
+        
+        if (!parsedSuccessfully) {
             // Fallback: Try to parse markdown if the AI failed to use JSON
             const catMatch = text.match(/\*\*Category:\*\*\s*([^\n]*)/i) || text.match(/Category:\s*([^\n]*)/i);
             // Description might be multi-line or single-line. We will just take the rest of the paragraph.

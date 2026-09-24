@@ -527,7 +527,7 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
     // Fetch user_id to send notification
     const userRes = await db.query('SELECT user_id FROM reports WHERE id = $1', [reportId]);
     if (userRes.rows.length > 0) {
-      sendPushNotification(userRes.rows[0].user_id, 'Issue Repaired! 🛠️', 'Your reported issue has been fixed by the agent. Open the app to verify it and claim your +50 Civic Points!');
+      sendPushNotification(userRes.rows[0].user_id, 'Issue Repaired! 🛠️', 'Your reported issue has been fixed by the agent. Open the app to verify it and claim your +40 Civic Points!');
     }
 
     clearCache(); // Invalidate cache on update
@@ -875,8 +875,11 @@ app.post('/reports', authenticateToken, upload.single('image'), async (req, res)
       [req.user.userId, category, description, department, lat, lng, address, imageUrl]
     );
     
+    // Instantly reward 20 coins for submitting a new problem
+    await db.query(`UPDATE users SET points = points + 20 WHERE id = $1`, [req.user.userId]);
+
     clearCache(); // Invalidate cache on new report
-    res.status(201).json({ message: 'Report submitted successfully', reportId: result.rows[0].id });
+    res.status(201).json({ message: 'Report submitted successfully. You earned +20 Civic Points!', reportId: result.rows[0].id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -890,9 +893,9 @@ app.put('/reports/:id/complete', authenticateToken, async (req, res) => {
     const result = await db.query(`UPDATE reports SET status = 'Solved', solved_at = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = $2`, [reportId, userId]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Report not found or not authorized' });
     
-    // Add 50 civic points
-    await db.query(`UPDATE users SET points = points + 50 WHERE id = $1`, [userId]);
-    sendPushNotification(userId, 'Issue Solved! 🎉', 'You earned +50 Civic Points for keeping your community safe.');
+    // Add 40 civic points (as requested by user)
+    await db.query(`UPDATE users SET points = points + 40 WHERE id = $1`, [userId]);
+    sendPushNotification(userId, 'Issue Solved! 🎉', 'You earned +40 Civic Points for keeping your community safe.');
 
     res.json({ message: 'Report marked as completed successfully' });
   } catch (err) {

@@ -95,7 +95,7 @@ const RewardsScreen = ({ navigation }) => {
           <Ionicons name="star" size={28} color="#F59E0B" style={{marginRight: 8}} />
           <Text style={styles.pointsText}>{points}</Text>
         </View>
-        <Text style={styles.pointsSubtitle}>Earn +50 points for every reported issue that gets verified and solved!</Text>
+        <Text style={styles.pointsSubtitle}>Earn +20 points instantly for reporting an issue, and +40 points when it gets solved!</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>

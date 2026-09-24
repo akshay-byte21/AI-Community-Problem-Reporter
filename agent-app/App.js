@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
 import { AuthProvider, AuthContext } from './src/context/AuthContext';
 import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
@@ -67,28 +67,42 @@ const AppNavigator = () => {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator 
+      screenOptions={{ 
+        headerShown: false,
+        cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+        transitionSpec: {
+          open: { animation: 'timing', config: { duration: 300 } },
+          close: { animation: 'timing', config: { duration: 300 } }
+        }
+      }}
+    >
       {userToken == null ? (
         <>
-          <Stack.Screen name="Splash" component={SplashScreen} />
+          <Stack.Screen name="Splash" component={SplashScreen} options={{ cardStyleInterpolator: CardStyleInterpolators.forFadeFromBottomAndroid }} />
           <Stack.Screen name="Login" component={LoginScreen} />
         </>
       ) : (
         <>
           <Stack.Screen name="Dashboard" component={DashboardScreen} />
-          <Stack.Screen name="Resolution" component={ResolutionScreen} options={{ headerShown: true, title: 'Task Details' }} />
+          <Stack.Screen name="Resolution" component={ResolutionScreen} options={{ headerShown: true, title: 'Task Details', cardStyleInterpolator: CardStyleInterpolators.forModalPresentationIOS }} />
         </>
       )}
     </Stack.Navigator>
   );
 };
 
+import OfflineOverlay from './src/components/OfflineOverlay';
+import { StatusBar } from 'expo-status-bar';
+
 export default function App() {
   return (
     <AuthProvider>
+      <StatusBar style="light" backgroundColor="transparent" translucent={true} />
       <NavigationContainer>
         <AppNavigator />
       </NavigationContainer>
+      <OfflineOverlay />
     </AuthProvider>
   );
 }

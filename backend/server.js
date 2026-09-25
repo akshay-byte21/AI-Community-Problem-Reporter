@@ -399,16 +399,15 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
             The RIGHT half is the 'After' state (uploaded as proof of resolution).
             Issue category: '${row.category}'. Description: '${row.description}'. 
 
-            Perform a step-by-step visual audit exactly as follows:
-            1. Feature Extraction: Map out the permanent structural anchors in the FIRST (LEFT) image. You must rely ONLY on permanent, solid geographical or man-made structures (e.g., road curves, curbs, hills, guardrails, distinct buildings, or specific permanent architectural landmarks). Do NOT use temporary or biological objects (like vehicles, lighting, clouds, flowers, leaves, trash, or grass) as structural anchors, as these change naturally over time.
-            2. Feature Matching (Environment Check): Scan the SECOND (RIGHT) image for those exact same permanent structural anchors. Do the mathematical geometry, perspective, and solid geographical objects match perfectly? (NOTE: If BOTH images are photos of a computer screen, that is acceptable for testing, but their displayed contents/environment must match). If the permanent geographical layout matches perfectly, you must ignore any discrepancies in temporary biological objects (like plants blooming, dying, or changing).
-            3. Delta Analysis (Resolution Check): If the permanent environment matches perfectly, compare the specific area where the civic issue was in the FIRST image. Has the damage or issue been physically repaired/fixed in the SECOND image?
-
-                        CRITICAL RULE: You must be extremely smart and detailed in your reasoning. If the permanent structural anchors in the SECOND image do not perfectly match the FIRST image (e.g., missing guardrail, completely reversed spatial layout, different road curve, different permanent background), you MUST return "valid": false and provide a clear, descriptive reason focusing on the BACKGROUND MISMATCH.
+                        Perform a step-by-step visual audit exactly as follows:
+            STEP 1 (Subject Match): Look at the core subject in both images (e.g., a pipe, a road). Do both images show the same TYPE of subject/problem? If not, return "valid": false and reason: "Verification Failed. The uploaded image does not show the same subject as the reported issue."
+            STEP 2 (Resolution Check): If the subjects match, check if the civic issue (e.g., water leak, pothole) has been physically repaired/fixed in the SECOND image. If the issue is still broken/unsolved, return "valid": false and reason: "Verification Failed. The problem is still visible and has not been repaired."
+            STEP 3 (Environment Match): Finally, check the permanent background environment (buildings, terrain, walls) of both images. Do the backgrounds match? If the backgrounds are completely different, return "valid": false and reason: "Verification Failed. Environment mismatch."
+            STEP 4 (Success): Only if all 3 steps pass (same subject, problem solved, environment matches), return "valid": true and reason: "Verified successfully. The problem has been resolved at the correct location."
             
             Respond ONLY with a JSON object in this exact format:
             {
-                "reason": "If rejected because the environment does not match, write exactly: 'Verification Failed. The background location in the resolution photo does not match the original reported location. The original photo shows [describe original background, e.g., dirt road with people], but the new photo shows [describe new background, e.g., a paved walkway by a reservoir]. You must take the photo at the correct location.' If rejected because it's not fixed, say: 'The environment matches, but the civic issue (e.g. water leak) is still visible and has not been repaired.'",
+                "reason": "The exact error or success message based on the steps above",
                 "environment_match": boolean,
                 "issue_resolved": boolean,
                 "valid": boolean
@@ -1057,5 +1056,6 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
+
 
 

@@ -765,13 +765,13 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
         
         if (!accountId || !apiToken) throw new Error("Cloudflare credentials missing");
 
-        const promptText = `You are a strict, highly accurate civic AI. Analyze this image to determine if it shows a genuine civic issue related to: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, or electricity issues (e.g. fallen poles, cut wires).
+        const promptText = `You are a highly intelligent civic AI assistant. Your job is to first detect the objects in the image (like a road, a pipe, a street light), and then analyze if those objects are actually damaged or causing a civic problem (e.g., potholes, leaks, garbage).
           CRITICAL RULES:
-          1. If the image is blurred, return ONLY this JSON: {"category": "Invalid", "description": "Image is blurred. Please take a clear photo.", "department": "None"}
-          2. If the image DOES NOT clearly show a civic issue (e.g. it is a plain wall, a mug, a random keyboard, or a person), return ONLY this JSON: {"category": "Invalid", "description": "This is not a recognized civic issue. Please upload a valid photo.", "department": "None"}. DO NOT hallucinate issues.
-          3. If the user is taking a photo of a computer screen to test the app, you MUST actually see the physical civic issue (like a pothole or water leak) displayed ON the screen. Just seeing a keyboard or a blank screen is NOT enough. If no actual civic issue is visible on the screen, return Invalid.
-          4. ONLY if a valid civic issue is clearly visible, return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (Detailed 3-4 sentence report), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). 
-          Return ONLY valid JSON, nothing else.`;
+          1. Identify Object: If it is a completely unrelated object (like a mug, a person, or a blank keyboard), return JSON: {"category": "Invalid", "description": "This is not a civic object. Please upload a valid photo.", "department": "None"}.
+          2. Check for Damage: If you identify a civic object (like a road or a water pipe), look very closely for ACTUAL damage (water spraying, deep potholes, cut wires, overflowing garbage). Do NOT assume or guess "potential" future damage.
+          3. No Problem Detected: If the object is perfectly fine (e.g., a smooth road, a dry intact pipe, a clean street), you MUST return JSON: {"category": "Invalid", "description": "The object appears to be in good condition. I didn't find any visible issues (like leaks or potholes) here. No problem detected, all is fine.", "department": "None"}.
+          4. Issue Detected: ONLY if there is clear, visible damage or an active civic issue, return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Electricity'), 'description' (Detailed 3-4 sentence report describing the exact damage and severity), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)').
+          Return ONLY valid JSON. No conversational text.`;
 
         const response = await fetch(
             `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.2-11b-vision-instruct`,

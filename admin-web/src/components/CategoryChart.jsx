@@ -14,6 +14,7 @@ const COLOR_PALETTE = [
   '#84cc16'  // Lime
 ];
 
+// CategoryChart: to handle client requests for CategoryChart and it processes the request to interact with database/AI and returns a response
 const CategoryChart = ({ reports }) => {
   // Process data for the chart by mapping to categories
   const categories = {};
@@ -31,6 +32,7 @@ const CategoryChart = ({ reports }) => {
     percentage: total > 0 ? ((categories[key] / total) * 100).toFixed(0) : 0
   }));
 
+  // CustomTooltip: to handle client requests for CustomTooltip and it processes the request to interact with database/AI and returns a response
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       return (
@@ -42,6 +44,7 @@ const CategoryChart = ({ reports }) => {
     return null;
   };
 
+  // renderCustomizedLabel: to handle client requests for renderCustomizedLabel and it processes the request to interact with database/AI and returns a response
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);

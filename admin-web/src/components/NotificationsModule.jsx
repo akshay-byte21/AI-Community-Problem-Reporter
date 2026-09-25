@@ -1,6 +1,7 @@
 import React from 'react';
 import { Bell, Clock } from 'lucide-react';
 
+// NotificationsModule: to handle client requests for NotificationsModule and it processes the request to interact with database/AI and returns a response
 const NotificationsModule = ({ notifications, onClear }) => {
   return (
     <div className="card">

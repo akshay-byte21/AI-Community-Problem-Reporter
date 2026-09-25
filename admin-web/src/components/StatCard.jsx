@@ -1,5 +1,6 @@
 import React from 'react';
 
+// StatCard: to handle client requests for StatCard and it processes the request to interact with database/AI and returns a response
 const StatCard = ({ title, value, icon, iconBg, trend, trendDanger }) => {
   return (
     <div className="stat-card">

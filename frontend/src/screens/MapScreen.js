@@ -5,6 +5,7 @@ import * as Location from 'expo-location';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 
+// MapScreen: to handle client requests for MapScreen and it processes the request to interact with database/AI and returns a response
 const MapScreen = () => {
   const { API_URL } = useContext(AuthContext);
   const [reports, setReports] = useState([]);
@@ -16,6 +17,7 @@ const MapScreen = () => {
     fetchInitialData();
   }, []);
 
+  // fetchInitialData: to handle client requests for fetchInitialData and it processes the request to interact with database/AI and returns a response
   const fetchInitialData = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -49,6 +51,7 @@ const MapScreen = () => {
     }
   }, [location, reports]);
 
+  // generateMapHtml: to handle client requests for generateMapHtml and it processes the request to interact with database/AI and returns a response
   const generateMapHtml = () => {
     const lat = location.latitude;
     const lng = location.longitude;

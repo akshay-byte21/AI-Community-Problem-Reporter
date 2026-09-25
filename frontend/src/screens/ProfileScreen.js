@@ -6,6 +6,7 @@ import axios from 'axios';
 
 import { useFocusEffect } from '@react-navigation/native';
 
+// ProfileScreen: to handle client requests for ProfileScreen and it processes the request to interact with database/AI and returns a response
 const ProfileScreen = ({ navigation }) => {
   const { userToken, API_URL, logout } = useContext(AuthContext);
   const [name, setName] = useState('');
@@ -20,6 +21,7 @@ const ProfileScreen = ({ navigation }) => {
     }, [])
   );
 
+  // fetchProfile: to handle client requests for fetchProfile and it processes the request to interact with database/AI and returns a response
   const fetchProfile = async () => {
     try {
       const res = await axios.get(`${API_URL}/user`, {
@@ -36,6 +38,7 @@ const ProfileScreen = ({ navigation }) => {
     }
   };
 
+  // handleSave: to handle client requests for handleSave and it processes the request to interact with database/AI and returns a response
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Validation Error', 'Name cannot be empty.');

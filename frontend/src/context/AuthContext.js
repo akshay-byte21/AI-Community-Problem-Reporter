@@ -16,6 +16,7 @@ export const AuthProvider = ({ children }) => {
   // The backend URL - update this when your Cloudflare tunnel restarts
   const API_URL = 'https://ai-community-problem-reporter.onrender.com';
 
+  // getSecurityQuestion: to handle client requests for getSecurityQuestion and it processes the request to interact with database/AI and returns a response
   const getSecurityQuestion = async (identifier) => {
     try {
       const res = await axios.post(`${API_URL}/get-security-question`, { identifier });
@@ -26,6 +27,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // verifySecurityAnswer: to handle client requests for verifySecurityAnswer and it processes the request to interact with database/AI and returns a response
   const verifySecurityAnswer = async (identifier, answer) => {
     try {
       const res = await axios.post(`${API_URL}/verify-security-answer`, { identifier, answer });
@@ -36,6 +38,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // resetPassword: to handle client requests for resetPassword and it processes the request to interact with database/AI and returns a response
   const resetPassword = async (identifier, newPassword) => {
     try {
       const res = await axios.post(`${API_URL}/reset-password`, { identifier, newPassword });
@@ -46,6 +49,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // login: to handle client requests for login and it processes the request to interact with database/AI and returns a response
   const login = async (identifier, password) => {
     try {
       const res = await axios.post(`${API_URL}/login`, { identifier, password });
@@ -59,6 +63,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // register: to handle client requests for register and it processes the request to interact with database/AI and returns a response
   const register = async (identifier, password, securityQuestion, securityAnswer) => {
     try {
       await axios.post(`${API_URL}/register`, { identifier, password, securityQuestion, securityAnswer });
@@ -69,11 +74,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // logout: to handle client requests for logout and it processes the request to interact with database/AI and returns a response
   const logout = async () => {
     setUserToken(null);
     await AsyncStorage.removeItem('userToken');
   };
 
+  // isLoggedIn: to handle client requests for isLoggedIn and it processes the request to interact with database/AI and returns a response
   const isLoggedIn = async () => {
     try {
       setIsLoading(true);

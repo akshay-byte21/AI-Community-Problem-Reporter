@@ -11,6 +11,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
+// DashboardMap: to handle client requests for DashboardMap and it processes the request to interact with database/AI and returns a response
 const DashboardMap = ({ reports }) => {
   // Default to a central location (e.g., Visakhapatnam based on mock data)
   const defaultCenter = [17.7292, 83.3323];

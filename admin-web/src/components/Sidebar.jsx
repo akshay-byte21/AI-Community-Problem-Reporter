@@ -1,6 +1,7 @@
 import React from 'react';
 import { LayoutDashboard, FileText, ListTree, Building2, Users, FileBarChart, PieChart, Bell, Settings, MapPin } from 'lucide-react';
 
+// Sidebar: to handle client requests for Sidebar and it processes the request to interact with database/AI and returns a response
 const Sidebar = ({ activeTab, setActiveTab, unreadCount = 0 }) => {
   return (
     <aside className="sidebar">

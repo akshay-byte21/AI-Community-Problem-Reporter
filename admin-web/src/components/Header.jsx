@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 
+// Header: to handle client requests for Header and it processes the request to interact with database/AI and returns a response
 const Header = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
 

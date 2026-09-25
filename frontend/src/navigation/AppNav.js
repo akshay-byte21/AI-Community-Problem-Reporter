@@ -17,6 +17,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// AppNav: to handle client requests for AppNav and it processes the request to interact with database/AI and returns a response
 const AppNav = () => {
   const { isLoading, userToken, API_URL } = useContext(AuthContext);
 

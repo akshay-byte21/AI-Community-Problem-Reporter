@@ -14,6 +14,7 @@ const COLOR_PALETTE = [
   '#84cc16'  // Lime
 ];
 
+// DepartmentChart: to handle client requests for DepartmentChart and it processes the request to interact with database/AI and returns a response
 const DepartmentChart = ({ reports }) => {
   // Process data for the chart by mapping to departments
   const departments = {};
@@ -33,6 +34,7 @@ const DepartmentChart = ({ reports }) => {
     percentage: total > 0 ? ((departments[key] / total) * 100).toFixed(0) : 0
   }));
 
+  // CustomTooltip: to handle client requests for CustomTooltip and it processes the request to interact with database/AI and returns a response
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       return (
@@ -44,6 +46,7 @@ const DepartmentChart = ({ reports }) => {
     return null;
   };
 
+  // renderCustomizedLabel: to handle client requests for renderCustomizedLabel and it processes the request to interact with database/AI and returns a response
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);

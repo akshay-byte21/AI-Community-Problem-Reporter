@@ -4,6 +4,7 @@ import NetInfo from '@react-native-community/netinfo';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// OfflineOverlay: to handle client requests for OfflineOverlay and it processes the request to interact with database/AI and returns a response
 const OfflineOverlay = () => {
   const [isConnected, setIsConnected] = useState(true);
 

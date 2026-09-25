@@ -5,6 +5,7 @@ import * as Progress from 'react-native-progress';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
 
+// AIProcessingScreen: to handle client requests for AIProcessingScreen and it processes the request to interact with database/AI and returns a response
 const AIProcessingScreen = ({ navigation, route }) => {
   const { imageUri, location, address } = route.params;
   const { userToken, API_URL } = useContext(AuthContext);
@@ -38,6 +39,7 @@ const AIProcessingScreen = ({ navigation, route }) => {
   }, []);
 
   useEffect(() => {
+    // analyzeImage: to handle client requests for analyzeImage and it processes the request to interact with database/AI and returns a response
     const analyzeImage = async () => {
       try {
         const formData = new FormData();

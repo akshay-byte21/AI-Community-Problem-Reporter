@@ -4,11 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 
+// NameSetupScreen: to handle client requests for NameSetupScreen and it processes the request to interact with database/AI and returns a response
 const NameSetupScreen = ({ navigation }) => {
   const [name, setName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { API_URL, userToken } = useContext(AuthContext);
 
+  // handleSubmit: to handle client requests for handleSubmit and it processes the request to interact with database/AI and returns a response
   const handleSubmit = async () => {
     if (!name.trim()) {
       Alert.alert('Required', 'Please enter your name to continue.');

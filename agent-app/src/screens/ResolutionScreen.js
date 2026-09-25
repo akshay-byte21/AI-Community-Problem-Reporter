@@ -7,6 +7,7 @@ import { AuthContext } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
 // Haversine formula to calculate distance between two lat/lng coordinates in meters
+// getDistance: to handle client requests for getDistance and it processes the request to interact with database/AI and returns a response
 const getDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371e3; // metres
   const φ1 = lat1 * Math.PI/180;
@@ -22,6 +23,7 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
   return R * c; // in metres
 };
 
+// ResolutionScreen: to handle client requests for ResolutionScreen and it processes the request to interact with database/AI and returns a response
 const ResolutionScreen = ({ route, navigation }) => {
   const { report } = route.params;
   const { userToken, API_URL } = useContext(AuthContext);
@@ -34,6 +36,7 @@ const ResolutionScreen = ({ route, navigation }) => {
   const [checkingLocation, setCheckingLocation] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
 
+  // openMap: to handle client requests for openMap and it processes the request to interact with database/AI and returns a response
   const openMap = () => {
     if (report.lat && report.lng) {
       const url = `https://www.google.com/maps/search/?api=1&query=${report.lat},${report.lng}`;
@@ -41,6 +44,7 @@ const ResolutionScreen = ({ route, navigation }) => {
     }
   };
 
+  // checkLocation: to handle client requests for checkLocation and it processes the request to interact with database/AI and returns a response
   const checkLocation = async () => {
     setCheckingLocation(true);
     let { status } = await Location.requestForegroundPermissionsAsync();
@@ -67,6 +71,7 @@ const ResolutionScreen = ({ route, navigation }) => {
     checkLocation();
   }, [report]);
 
+  // takePhoto: to handle client requests for takePhoto and it processes the request to interact with database/AI and returns a response
   const takePhoto = async () => {
     if (!isNear) {
       Alert.alert('Location Error', 'You must be at the reported location to capture the resolution photo.');
@@ -84,6 +89,7 @@ const ResolutionScreen = ({ route, navigation }) => {
     }
   };
 
+  // uploadResolution: to handle client requests for uploadResolution and it processes the request to interact with database/AI and returns a response
   const uploadResolution = async () => {
     if (!imageUri) return Alert.alert('Error', 'Please capture a photo first.');
     

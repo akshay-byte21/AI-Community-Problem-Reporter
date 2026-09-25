@@ -12,6 +12,7 @@ export const AuthProvider = ({ children }) => {
   // Use the active Cloudflare Tunnel URL
   const API_URL = 'https://ai-community-problem-reporter.onrender.com';
 
+  // login: to handle client requests for login and it processes the request to interact with database/AI and returns a response
   const login = async (phone) => {
     try {
       const res = await axios.post(`${API_URL}/agent-login`, { phone });
@@ -27,6 +28,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // logout: to handle client requests for logout and it processes the request to interact with database/AI and returns a response
   const logout = async () => {
     setUserToken(null);
     setAgent(null);
@@ -34,6 +36,7 @@ export const AuthProvider = ({ children }) => {
     await AsyncStorage.removeItem('agentData');
   };
 
+  // loadAuthData: to handle client requests for loadAuthData and it processes the request to interact with database/AI and returns a response
   const loadAuthData = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');

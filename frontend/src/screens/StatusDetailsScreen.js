@@ -3,13 +3,16 @@ import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Ima
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
+import * as Animatable from 'react-native-animatable';
 
+// StatusDetailsScreen: to handle client requests for StatusDetailsScreen and it processes the request to interact with database/AI and returns a response
 const StatusDetailsScreen = ({ navigation, route }) => {
   const { report } = route.params;
   const { API_URL, userToken } = useContext(AuthContext);
   const [currentStatus, setCurrentStatus] = useState(report.status || 'Pending');
   const [isUpdating, setIsUpdating] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Parse date and calculate future expected dates
   const dateObj = new Date(report.created_at);
@@ -23,6 +26,7 @@ const StatusDetailsScreen = ({ navigation, route }) => {
   const progressDate = new Date(dateObj.getTime() + 2 * 24 * 60 * 60 * 1000); // +2 days
   const completedDate = new Date(dateObj.getTime() + 3 * 24 * 60 * 60 * 1000); // +3 days
 
+  // getStepStatus: to handle client requests for getStepStatus and it processes the request to interact with database/AI and returns a response
   const getStepStatus = (stepName) => {
     const mappedStatus = currentStatus === 'Pending Verification' ? 'Completed' : currentStatus;
     const order = ['Pending', 'Under Review', 'In Progress', 'Completed', 'Solved'];
@@ -33,6 +37,7 @@ const StatusDetailsScreen = ({ navigation, route }) => {
     return 'pending';
   };
 
+  // getActualOrExpected: to handle client requests for getActualOrExpected and it processes the request to interact with database/AI and returns a response
   const getActualOrExpected = (dbDate, fallbackDate, stepName) => {
     const status = getStepStatus(stepName);
     if (status === 'completed' || status === 'current') {
@@ -49,6 +54,7 @@ const StatusDetailsScreen = ({ navigation, route }) => {
     { title: 'Solved', date: currentStatus === 'Solved' ? (report.solved_at ? `${formatDate(new Date(report.solved_at))}, ${formatTime(new Date(report.solved_at))}` : 'Confirmed by you') : 'Awaiting Confirmation', statusName: 'Solved' }
   ];
 
+  // handleMarkCompleted: to handle client requests for handleMarkCompleted and it processes the request to interact with database/AI and returns a response
   const handleMarkCompleted = async () => {
     setIsUpdating(true);
     try {
@@ -56,7 +62,7 @@ const StatusDetailsScreen = ({ navigation, route }) => {
         headers: { Authorization: `Bearer ${userToken}` }
       });
       setCurrentStatus('Solved');
-      Alert.alert('Success', 'Thank you for confirming the resolution!');
+      setShowSuccessModal(true);
     } catch (e) {
       console.error(e);
       Alert.alert('Error', 'Failed to mark as solved.');
@@ -65,6 +71,7 @@ const StatusDetailsScreen = ({ navigation, route }) => {
     }
   };
 
+  // handleReopen: to handle client requests for handleReopen and it processes the request to interact with database/AI and returns a response
   const handleReopen = async () => {
     setIsUpdating(true);
     try {
@@ -81,6 +88,7 @@ const StatusDetailsScreen = ({ navigation, route }) => {
     }
   };
 
+  // TimelineItem: to handle client requests for TimelineItem and it processes the request to interact with database/AI and returns a response
   const TimelineItem = ({ item, isLast, status }) => {
     let iconName = 'checkmark';
     let iconColor = '#fff';
@@ -116,6 +124,7 @@ const StatusDetailsScreen = ({ navigation, route }) => {
   };
 
   return (
+    <>
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
@@ -226,6 +235,28 @@ const StatusDetailsScreen = ({ navigation, route }) => {
       </Modal>
 
     </SafeAreaView>
+
+      <Modal visible={showSuccessModal} transparent={true} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <Animatable.View animation="zoomIn" style={styles.modalContent}>
+            <View style={styles.modalIconContainer}>
+              <Ionicons name="star" size={50} color="#F59E0B" />
+            </View>
+            <Text style={styles.modalTitle}>Incredible!</Text>
+            <Text style={styles.modalText}>You confirmed the resolution and earned an extra <Text style={{fontWeight: 'bold', color: '#F59E0B'}}>+40 Civic Points</Text>!</Text>
+            <TouchableOpacity 
+              style={styles.modalButton}
+              onPress={() => {
+                setShowSuccessModal(false);
+                navigation.goBack();
+              }}
+            >
+              <Text style={styles.modalButtonText}>Claim</Text>
+            </TouchableOpacity>
+          </Animatable.View>
+        </View>
+      </Modal>
+    </>
   );
 };
 
@@ -377,6 +408,58 @@ const styles = StyleSheet.create({
   },
   pendingBtnText: {
     color: '#374151',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFF',
+    width: '80%',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+  },
+  modalIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FFFBEB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  modalText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  modalButton: {
+    backgroundColor: '#1B8C4A',
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   }
 });
 

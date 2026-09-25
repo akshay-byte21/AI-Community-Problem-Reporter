@@ -5,12 +5,14 @@ import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 
+// TrackScreen: to handle client requests for TrackScreen and it processes the request to interact with database/AI and returns a response
 const TrackScreen = ({ navigation }) => {
   const { userToken, API_URL } = useContext(AuthContext);
   const [reports, setReports] = useState([]);
   const [activeTab, setActiveTab] = useState('Active');
   const [refreshing, setRefreshing] = useState(false);
 
+  // fetchReports: to handle client requests for fetchReports and it processes the request to interact with database/AI and returns a response
   const fetchReports = async () => {
     try {
       const res = await axios.get(`${API_URL}/reports`, {
@@ -30,6 +32,7 @@ const TrackScreen = ({ navigation }) => {
     }, [userToken])
   );
 
+  // onRefresh: to handle client requests for onRefresh and it processes the request to interact with database/AI and returns a response
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchReports();

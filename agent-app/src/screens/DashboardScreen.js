@@ -3,6 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl, Saf
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
 
+// DashboardScreen: to handle client requests for DashboardScreen and it processes the request to interact with database/AI and returns a response
 const DashboardScreen = ({ navigation }) => {
   const { userToken, agent, logout, API_URL } = useContext(AuthContext);
   const [reports, setReports] = useState([]);

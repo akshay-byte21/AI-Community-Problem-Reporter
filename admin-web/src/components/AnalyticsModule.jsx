@@ -2,6 +2,7 @@ import React from 'react';
 import { PieChart, TrendingUp, AlertTriangle } from 'lucide-react';
 import DepartmentChart from './DepartmentChart';
 
+// AnalyticsModule: to handle client requests for AnalyticsModule and it processes the request to interact with database/AI and returns a response
 const AnalyticsModule = ({ reports }) => {
   if (!reports || reports.length === 0) {
     return <div className="card">No data available for analytics.</div>;

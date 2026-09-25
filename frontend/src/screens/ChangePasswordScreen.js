@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
 
+// ChangePasswordScreen: to handle client requests for ChangePasswordScreen and it processes the request to interact with database/AI and returns a response
 const ChangePasswordScreen = ({ navigation }) => {
   const { userToken, API_URL } = useContext(AuthContext);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -11,6 +12,7 @@ const ChangePasswordScreen = ({ navigation }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // handleChangePassword: to handle client requests for handleChangePassword and it processes the request to interact with database/AI and returns a response
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       Alert.alert('Validation Error', 'Please fill all fields.');
@@ -40,6 +42,7 @@ const ChangePasswordScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" translucent={false} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
           <Ionicons name="arrow-back" size={24} color="#111827" />
@@ -59,6 +62,7 @@ const ChangePasswordScreen = ({ navigation }) => {
             <TextInput
               style={styles.input}
               placeholder="Enter current password"
+              placeholderTextColor="#9CA3AF"
               secureTextEntry
               value={currentPassword}
               onChangeText={setCurrentPassword}
@@ -73,6 +77,7 @@ const ChangePasswordScreen = ({ navigation }) => {
             <TextInput
               style={styles.input}
               placeholder="Enter new password"
+              placeholderTextColor="#9CA3AF"
               secureTextEntry
               value={newPassword}
               onChangeText={setNewPassword}
@@ -87,6 +92,7 @@ const ChangePasswordScreen = ({ navigation }) => {
             <TextInput
               style={styles.input}
               placeholder="Confirm new password"
+              placeholderTextColor="#9CA3AF"
               secureTextEntry
               value={confirmPassword}
               onChangeText={setConfirmPassword}

@@ -2,11 +2,13 @@ import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaView } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 
+// LoginScreen: to handle client requests for LoginScreen and it processes the request to interact with database/AI and returns a response
 const LoginScreen = () => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const { login } = useContext(AuthContext);
 
+  // handleLogin: to handle client requests for handleLogin and it processes the request to interact with database/AI and returns a response
   const handleLogin = async () => {
     if (!phone) return Alert.alert('Error', 'Please enter your Agent ID');
     if (!password) return Alert.alert('Error', 'Please enter your Password');

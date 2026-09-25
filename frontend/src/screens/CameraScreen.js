@@ -3,6 +3,7 @@ import { View, StyleSheet, ActivityIndicator, Text, SafeAreaView } from 'react-n
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 
+// CameraScreen: to handle client requests for CameraScreen and it processes the request to interact with database/AI and returns a response
 const CameraScreen = ({ navigation }) => {
   const [isLocating, setIsLocating] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Opening Camera...');
@@ -15,6 +16,7 @@ const CameraScreen = ({ navigation }) => {
     }
   }, []);
 
+  // takePictureAndLocate: to handle client requests for takePictureAndLocate and it processes the request to interact with database/AI and returns a response
   const takePictureAndLocate = async () => {
     try {
       // 1. Ask for permissions

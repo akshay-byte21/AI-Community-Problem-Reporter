@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Image, Platform, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+// ReviewComplaintScreen: to handle client requests for ReviewComplaintScreen and it processes the request to interact with database/AI and returns a response
 const ReviewComplaintScreen = ({ navigation, route }) => {
   const { imageUri, location, address, aiCategory, aiDescription, department } = route.params;
 
@@ -198,3 +199,4 @@ const styles = StyleSheet.create({
 });
 
 export default ReviewComplaintScreen;
+

@@ -10,6 +10,7 @@ const SECURITY_QUESTIONS = [
   "What was your childhood nickname?"
 ];
 
+// LoginScreen: to handle client requests for LoginScreen and it processes the request to interact with database/AI and returns a response
 const LoginScreen = ({ navigation }) => {
   const { login, register, getSecurityQuestion, verifySecurityAnswer, resetPassword } = useContext(AuthContext);
   
@@ -36,6 +37,7 @@ const LoginScreen = ({ navigation }) => {
   const fadeAnimation = useRef(new Animated.Value(0)).current;
   const slideAnimation = useRef(new Animated.Value(20)).current;
 
+  // triggerShake: to handle client requests for triggerShake and it processes the request to interact with database/AI and returns a response
   const triggerShake = () => {
     Animated.sequence([
       Animated.timing(shakeAnimation, { toValue: 10, duration: 100, useNativeDriver: true }),
@@ -45,6 +47,7 @@ const LoginScreen = ({ navigation }) => {
     ]).start();
   };
 
+  // triggerEntranceAnimation: to handle client requests for triggerEntranceAnimation and it processes the request to interact with database/AI and returns a response
   const triggerEntranceAnimation = () => {
     fadeAnimation.setValue(0);
     slideAnimation.setValue(20);
@@ -66,6 +69,7 @@ const LoginScreen = ({ navigation }) => {
     triggerEntranceAnimation();
   }, [isLogin, isForgotPassword, resetStep]);
 
+  // handleLogin: to handle client requests for handleLogin and it processes the request to interact with database/AI and returns a response
   const handleLogin = async () => {
     if (!identifier || !password) {
       Alert.alert('Error', 'Please enter both Phone number and password');
@@ -82,6 +86,7 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
+  // handleCreateAccount: to handle client requests for handleCreateAccount and it processes the request to interact with database/AI and returns a response
   const handleCreateAccount = async () => {
     if (!identifier || identifier.length !== 10 || !/^\d+$/.test(identifier)) {
       Alert.alert('Error', 'Please enter a valid 10-digit Phone number');
@@ -111,6 +116,7 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
+  // handleGetQuestion: to handle client requests for handleGetQuestion and it processes the request to interact with database/AI and returns a response
   const handleGetQuestion = async () => {
     if (!identifier || identifier.length !== 10 || !/^\d+$/.test(identifier)) {
       Alert.alert('Error', 'Please enter a valid 10-digit Phone number');
@@ -126,6 +132,7 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
+  // handleVerifyAnswer: to handle client requests for handleVerifyAnswer and it processes the request to interact with database/AI and returns a response
   const handleVerifyAnswer = async () => {
     if (!securityAnswer.trim()) {
       Alert.alert('Error', 'Please enter your answer');
@@ -150,6 +157,7 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
+  // handleResetPassword: to handle client requests for handleResetPassword and it processes the request to interact with database/AI and returns a response
   const handleResetPassword = async () => {
     if (!password) {
       Alert.alert('Error', 'Please enter a new password');
@@ -173,6 +181,7 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
+  // switchMode: to handle client requests for switchMode and it processes the request to interact with database/AI and returns a response
   const switchMode = () => {
     setIsForgotPassword(false);
     setIsLogin(!isLogin);
@@ -180,6 +189,7 @@ const LoginScreen = ({ navigation }) => {
     setSecurityAnswer('');
   };
 
+  // renderForgotPassword: to handle client requests for renderForgotPassword and it processes the request to interact with database/AI and returns a response
   const renderForgotPassword = () => {
     return (
       <View style={styles.form}>

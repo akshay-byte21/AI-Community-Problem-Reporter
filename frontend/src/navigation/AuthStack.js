@@ -5,6 +5,7 @@ import LoginScreen from '../screens/LoginScreen';
 
 const Stack = createStackNavigator();
 
+// AuthStack: to handle client requests for AuthStack and it processes the request to interact with database/AI and returns a response
 const AuthStack = () => {
   return (
     <Stack.Navigator 

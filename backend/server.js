@@ -24,6 +24,7 @@ app.use(express.json());
 const cache = new NodeCache({ stdTTL: 300 });
 
 // Clear cache helper
+// clearCache: to handle client requests for clearCache and it processes the request to interact with database/AI and returns a response
 const clearCache = () => {
   cache.flushAll();
 };
@@ -89,6 +90,10 @@ async function sendPushNotificationToToken(pushToken, title, body) {
 // Helper function to send Expo Push Notification by User ID
 async function sendPushNotification(userId, title, body) {
   try {
+    // 1. Save Notification to DB for the history tab
+    await db.query('INSERT INTO notifications (user_id, title, message) VALUES ($1, $2, $3)', [userId, title, body]);
+
+    // 2. Send Expo Push if token exists
     const result = await db.query('SELECT push_token FROM users WHERE id = $1', [userId]);
     if (result.rows.length === 0) return;
     const pushToken = result.rows[0].push_token;
@@ -98,7 +103,22 @@ async function sendPushNotification(userId, title, body) {
   }
 }
 
+// Get User Notifications
+// /notifications: to handle client requests for /notifications and it processes the request to interact with database/AI and returns a response
+app.get('/notifications', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC',
+      [req.user.userId]
+    );
+    res.json({ notifications: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
 // Send OTP Route
+// /send-otp: to handle client requests for /send-otp and it processes the request to interact with database/AI and returns a response
 app.post('/send-otp', (req, res) => {
   const { identifier } = req.body;
   if (!identifier) return res.status(400).json({ error: 'Email or phone required' });
@@ -116,6 +136,7 @@ app.post('/send-otp', (req, res) => {
 });
 
 // Verify OTP Route
+// /verify-otp: to handle client requests for /verify-otp and it processes the request to interact with database/AI and returns a response
 app.post('/verify-otp', (req, res) => {
   const { identifier, otp } = req.body;
   if (!identifier || !otp) return res.status(400).json({ error: 'Identifier and OTP required' });
@@ -137,6 +158,7 @@ app.post('/verify-otp', (req, res) => {
 });
 
 // Register Route
+// /register: to handle client requests for /register and it processes the request to interact with database/AI and returns a response
 app.post('/register', async (req, res) => {
   const identifier = req.body.identifier || req.body.phone;
   const password = req.body.password;
@@ -161,6 +183,7 @@ app.post('/register', async (req, res) => {
 });
 
 // Login Route
+// /login: to handle client requests for /login and it processes the request to interact with database/AI and returns a response
 app.post('/login', async (req, res) => {
   const identifier = req.body.identifier || req.body.phone;
   const password = req.body.password;
@@ -190,6 +213,7 @@ app.post('/login', async (req, res) => {
 });
 
 // Get Security Question Route
+// /get-security-question: to handle client requests for /get-security-question and it processes the request to interact with database/AI and returns a response
 app.post('/get-security-question', async (req, res) => {
   const { identifier } = req.body;
   if (!identifier) return res.status(400).json({ error: 'Phone number required' });
@@ -207,6 +231,7 @@ app.post('/get-security-question', async (req, res) => {
 });
 
 // Verify Security Answer Route
+// /verify-security-answer: to handle client requests for /verify-security-answer and it processes the request to interact with database/AI and returns a response
 app.post('/verify-security-answer', async (req, res) => {
   const { identifier, answer } = req.body;
   if (!identifier || !answer) return res.status(400).json({ error: 'Phone number and answer required' });
@@ -227,6 +252,7 @@ app.post('/verify-security-answer', async (req, res) => {
 });
 
 // Reset Password Route (via Security Question)
+// /reset-password: to handle client requests for /reset-password and it processes the request to interact with database/AI and returns a response
 app.post('/reset-password', async (req, res) => {
   const { identifier, newPassword } = req.body;
   if (!identifier || !newPassword) return res.status(400).json({ error: 'Phone number and new password required' });
@@ -241,6 +267,7 @@ app.post('/reset-password', async (req, res) => {
 });
 
 // Middleware to verify JWT
+// authenticateToken: to handle client requests for authenticateToken and it processes the request to interact with database/AI and returns a response
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -256,6 +283,7 @@ function authenticateToken(req, res, next) {
 // --- AGENT ENDPOINTS ---
 
 // Agent Login
+// /agent-login: to handle client requests for /agent-login and it processes the request to interact with database/AI and returns a response
 app.post('/agent-login', async (req, res) => {
   const phone = req.body.phone;
   if (!phone) return res.status(400).json({ error: 'Phone number required' });
@@ -273,6 +301,7 @@ app.post('/agent-login', async (req, res) => {
 });
 
 // Middleware for agent auth
+// authenticateAgent: to handle client requests for authenticateAgent and it processes the request to interact with database/AI and returns a response
 function authenticateAgent(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -286,6 +315,7 @@ function authenticateAgent(req, res, next) {
 }
 
 // Update agent push token
+// /agent/push-token: to handle client requests for /agent/push-token and it processes the request to interact with database/AI and returns a response
 app.put('/agent/push-token', authenticateAgent, async (req, res) => {
   const { pushToken } = req.body;
   try {
@@ -297,6 +327,7 @@ app.put('/agent/push-token', authenticateAgent, async (req, res) => {
 });
 
 // Get assigned reports for agent
+// /agent/reports: to handle client requests for /agent/reports and it processes the request to interact with database/AI and returns a response
 app.get('/agent/reports', authenticateAgent, async (req, res) => {
   try {
     const result = await db.query(`
@@ -313,6 +344,7 @@ app.get('/agent/reports', authenticateAgent, async (req, res) => {
 });
 
 // Resolve a report with a photo
+// /agent/resolve: to handle client requests for /agent/resolve and it processes the request to interact with database/AI and returns a response
 app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), async (req, res) => {
   const reportId = req.body.reportId;
   if (!req.file || !reportId) return res.status(400).json({ error: 'Image and reportId required' });
@@ -541,6 +573,7 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
 // --- END AGENT ENDPOINTS ---
 
 // Admin: Get all users in the system
+// /admin/users: to handle client requests for /admin/users and it processes the request to interact with database/AI and returns a response
 app.get('/admin/users', async (req, res) => {
   try {
     const result = await db.query(`
@@ -557,6 +590,7 @@ app.get('/admin/users', async (req, res) => {
 });
 
 // Admin: Get all staff members
+// /admin/staff: to handle client requests for /admin/staff and it processes the request to interact with database/AI and returns a response
 app.get('/admin/staff', async (req, res) => {
   try {
     const result = await db.query(`SELECT * FROM staff`);
@@ -567,6 +601,7 @@ app.get('/admin/staff', async (req, res) => {
 });
 
 // Admin: Assign staff to a report
+// /admin/reports/:id/assign: to handle client requests for /admin/reports/:id/assign and it processes the request to interact with database/AI and returns a response
 app.post('/admin/reports/:id/assign', async (req, res) => {
   const { id } = req.params;
   const { staff_id } = req.body;
@@ -590,6 +625,7 @@ app.post('/admin/reports/:id/assign', async (req, res) => {
 });
 
 // Admin: Get all reports in the system
+// /admin/reports: to handle client requests for /admin/reports and it processes the request to interact with database/AI and returns a response
 app.get('/admin/reports', async (req, res) => {
   try {
     const cachedData = cache.get('admin_reports');
@@ -611,6 +647,7 @@ app.get('/admin/reports', async (req, res) => {
 });
 
 // Get all reports (filtered by user)
+// /reports: to handle client requests for /reports and it processes the request to interact with database/AI and returns a response
 app.get('/reports', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(`SELECT * FROM reports WHERE user_id = $1 ORDER BY created_at DESC`, [req.user.userId]);
@@ -621,6 +658,7 @@ app.get('/reports', authenticateToken, async (req, res) => {
 });
 
 // Get user profile
+// /user: to handle client requests for /user and it processes the request to interact with database/AI and returns a response
 app.get('/user', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(`SELECT id, identifier, name, points FROM users WHERE id = $1`, [req.user.userId]);
@@ -633,6 +671,7 @@ app.get('/user', authenticateToken, async (req, res) => {
 });
 
 // Claim a reward (deduct points)
+// /user/claim-reward: to handle client requests for /user/claim-reward and it processes the request to interact with database/AI and returns a response
 app.post('/user/claim-reward', authenticateToken, async (req, res) => {
   const { cost, rewardName } = req.body;
   try {
@@ -663,6 +702,7 @@ app.post('/user/claim-reward', authenticateToken, async (req, res) => {
 });
 
 // Update user profile
+// /user: to handle client requests for /user and it processes the request to interact with database/AI and returns a response
 app.put('/user', authenticateToken, async (req, res) => {
   const { name } = req.body;
   try {
@@ -674,6 +714,7 @@ app.put('/user', authenticateToken, async (req, res) => {
 });
 
 // Update push token
+// /user/push-token: to handle client requests for /user/push-token and it processes the request to interact with database/AI and returns a response
 app.put('/user/push-token', authenticateToken, async (req, res) => {
   const { pushToken } = req.body;
   try {
@@ -685,6 +726,7 @@ app.put('/user/push-token', authenticateToken, async (req, res) => {
 });
 
 // Get public reports for map
+// /reports/public: to handle client requests for /reports/public and it processes the request to interact with database/AI and returns a response
 app.get('/reports/public', async (req, res) => {
   try {
     const cachedData = cache.get('public_reports');
@@ -704,6 +746,7 @@ app.get('/reports/public', async (req, res) => {
 });
 
 // Analyze image using Gemini AI
+// /analyze-image: to handle client requests for /analyze-image and it processes the request to interact with database/AI and returns a response
 app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Image is required' });
@@ -722,12 +765,13 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
         
         if (!accountId || !apiToken) throw new Error("Cloudflare credentials missing");
 
-        const promptText = `Analyze this image to determine if it shows a civic issue related to: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, or electricity issues (e.g. fallen poles, cut wires).
-        CRITICAL RULES:
-        1. If the image is blurred, return ONLY this JSON: {"category": "Invalid", "description": "Image is blurred. Please take a clear photo.", "department": "None"}
-        2. If the image shows a valid civic issue (including photos of a computer screen or monitor displaying a civic issue), return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (Generate a very detailed, professional, and clear 3-4 sentence report describing the exact severity, location context seen in the photo, and the specific impact on the community to assist the municipal authority), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). 
-        3. If the image DOES NOT relate to any of these civic issues at all (e.g. it is just a plain wall, a mug, or a blank keyboard with no civic issue on the screen), return ONLY this JSON: {"category": "Invalid", "description": "This is not a recognized civic issue.", "department": "None"}. 
-        Return ONLY valid JSON, nothing else.`;
+        const promptText = `You are a strict, highly accurate civic AI. Analyze this image to determine if it shows a genuine civic issue related to: road potholes, garbage/solid waste, water leakage/supply, sanitary issues, or electricity issues (e.g. fallen poles, cut wires).
+          CRITICAL RULES:
+          1. If the image is blurred, return ONLY this JSON: {"category": "Invalid", "description": "Image is blurred. Please take a clear photo.", "department": "None"}
+          2. If the image DOES NOT clearly show a civic issue (e.g. it is a plain wall, a mug, a random keyboard, or a person), return ONLY this JSON: {"category": "Invalid", "description": "This is not a recognized civic issue. Please upload a valid photo.", "department": "None"}. DO NOT hallucinate issues.
+          3. If the user is taking a photo of a computer screen to test the app, you MUST actually see the physical civic issue (like a pothole or water leak) displayed ON the screen. Just seeing a keyboard or a blank screen is NOT enough. If no actual civic issue is visible on the screen, return Invalid.
+          4. ONLY if a valid civic issue is clearly visible, return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'), 'description' (Detailed 3-4 sentence report), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)'). 
+          Return ONLY valid JSON, nothing else.`;
 
         const response = await fetch(
             `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.2-11b-vision-instruct`,
@@ -836,6 +880,7 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
 });
 
 // Submit a new report
+// /reports: to handle client requests for /reports and it processes the request to interact with database/AI and returns a response
 app.post('/reports', authenticateToken, upload.single('image'), async (req, res) => {
   const { category, description, department, lat, lng, address } = req.body;
   const imageUrl = req.file ? req.file.path : null; // Cloudinary URL
@@ -877,6 +922,7 @@ app.post('/reports', authenticateToken, upload.single('image'), async (req, res)
     
     // Instantly reward 20 coins for submitting a new problem
     await db.query(`UPDATE users SET points = points + 20 WHERE id = $1`, [req.user.userId]);
+    sendPushNotification(req.user.userId, 'Issue Reported! 📝', 'Congratulations! You earned +20 Civic Points for reporting an issue.');
 
     clearCache(); // Invalidate cache on new report
     res.status(201).json({ message: 'Report submitted successfully. You earned +20 Civic Points!', reportId: result.rows[0].id });
@@ -886,6 +932,7 @@ app.post('/reports', authenticateToken, upload.single('image'), async (req, res)
 });
 
 // Mark a report as Completed by the user
+// /reports/:id/complete: to handle client requests for /reports/:id/complete and it processes the request to interact with database/AI and returns a response
 app.put('/reports/:id/complete', authenticateToken, async (req, res) => {
   const reportId = req.params.id;
   const userId = req.user.userId;
@@ -904,12 +951,23 @@ app.put('/reports/:id/complete', authenticateToken, async (req, res) => {
 });
 
 // Reopen a report by the user
+// /reports/:id/reopen: to handle client requests for /reports/:id/reopen and it processes the request to interact with database/AI and returns a response
 app.put('/reports/:id/reopen', authenticateToken, async (req, res) => {
   const reportId = req.params.id;
   const userId = req.user.userId;
   try {
-    const result = await db.query(`UPDATE reports SET status = 'In Progress', resolution_image_url = NULL WHERE id = $1 AND user_id = $2`, [reportId, userId]);
+    const result = await db.query(`UPDATE reports SET status = 'In Progress', resolution_image_url = NULL WHERE id = $1 AND user_id = $2 RETURNING assigned_staff_id`, [reportId, userId]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Report not found or not authorized' });
+    
+    // Notify the assigned agent that the issue was reopened
+    const staffId = result.rows[0].assigned_staff_id;
+    if (staffId) {
+      const staffRes = await db.query(`SELECT push_token FROM staff WHERE id = $1`, [staffId]);
+      if (staffRes.rows.length > 0 && staffRes.rows[0].push_token) {
+        await sendPushNotificationToToken(staffRes.rows[0].push_token, 'Issue Reopened ⚠️', `The user has reopened an issue you worked on.`);
+      }
+    }
+    
     res.json({ message: 'Report reopened successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -917,6 +975,7 @@ app.put('/reports/:id/reopen', authenticateToken, async (req, res) => {
 });
 
 // Admin: Manually assign staff to a report
+// /admin/reports/:id/assign: to handle client requests for /admin/reports/:id/assign and it processes the request to interact with database/AI and returns a response
 app.put('/admin/reports/:id/assign', async (req, res) => {
   const { staff_id } = req.body;
   try {
@@ -936,6 +995,7 @@ app.put('/admin/reports/:id/assign', async (req, res) => {
 });
 
 // Change Password Route
+// /change-password: to handle client requests for /change-password and it processes the request to interact with database/AI and returns a response
 app.put('/change-password', authenticateToken, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Both passwords required' });
@@ -983,6 +1043,7 @@ setInterval(async () => {
 app.use(express.static(path.join(__dirname, '../admin-web/dist')));
 
 // Render Keep-Alive Ping
+// /ping: to handle client requests for /ping and it processes the request to interact with database/AI and returns a response
 app.get('/ping', (req, res) => {
   res.send('pong');
 });
@@ -996,3 +1057,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
+

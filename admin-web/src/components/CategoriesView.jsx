@@ -1,6 +1,7 @@
 import React from 'react';
 import CategoryChart from './CategoryChart';
 
+// CategoriesView: to handle client requests for CategoriesView and it processes the request to interact with database/AI and returns a response
 const CategoriesView = ({ reports }) => {
   const categories = {};
   reports.forEach(report => {

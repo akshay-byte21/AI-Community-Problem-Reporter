@@ -1,14 +1,18 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform, StatusBar, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
+import * as Animatable from 'react-native-animatable';
 
+// SubmitScreen: to handle client requests for SubmitScreen and it processes the request to interact with database/AI and returns a response
 const SubmitScreen = ({ navigation, route }) => {
   const { imageUri, location, address, aiCategory, aiDescription, department } = route.params;
   const { userToken, API_URL } = useContext(AuthContext);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  // handleSubmit: to handle client requests for handleSubmit and it processes the request to interact with database/AI and returns a response
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
@@ -34,9 +38,7 @@ const SubmitScreen = ({ navigation, route }) => {
       });
       
       setIsSubmitting(false);
-      Alert.alert('Success', 'Complaint submitted successfully', [
-        { text: 'OK', onPress: () => navigation.popToTop() }
-      ]);
+      setShowSuccessModal(true);
     } catch (e) {
       console.error(e);
       setIsSubmitting(false);
@@ -56,7 +58,8 @@ const SubmitScreen = ({ navigation, route }) => {
   const timeString = currentDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) + ' (IST)';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <>
+      <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
           <Ionicons name="arrow-back" size={24} color="#111827" />
@@ -116,6 +119,28 @@ const SubmitScreen = ({ navigation, route }) => {
         </TouchableOpacity>
       </View>
     </SafeAreaView>
+
+    <Modal visible={showSuccessModal} transparent={true} animationType="fade">
+      <View style={styles.modalOverlay}>
+        <Animatable.View animation="zoomIn" style={styles.modalContent}>
+          <View style={styles.modalIconContainer}>
+            <Ionicons name="star" size={50} color="#F59E0B" />
+          </View>
+          <Text style={styles.modalTitle}>Congratulations!</Text>
+          <Text style={styles.modalText}>You successfully reported an issue and earned <Text style={{fontWeight: 'bold', color: '#F59E0B'}}>+20 Civic Points</Text>!</Text>
+          <TouchableOpacity 
+            style={styles.modalButton}
+            onPress={() => {
+              setShowSuccessModal(false);
+              navigation.popToTop();
+            }}
+          >
+            <Text style={styles.modalButtonText}>Awesome!</Text>
+          </TouchableOpacity>
+        </Animatable.View>
+      </View>
+    </Modal>
+  </>
   );
 };
 
@@ -232,6 +257,58 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFF',
+    width: '80%',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+  },
+  modalIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FFFBEB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  modalText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  modalButton: {
+    backgroundColor: '#1B8C4A',
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
   }

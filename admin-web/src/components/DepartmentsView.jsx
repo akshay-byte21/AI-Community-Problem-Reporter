@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ArrowLeft, User, Phone } from 'lucide-react';
 
+// DepartmentsView: to handle client requests for DepartmentsView and it processes the request to interact with database/AI and returns a response
 const DepartmentsView = ({ reports, API_URL }) => {
   const [staff, setStaff] = useState([]);
   const [selectedDept, setSelectedDept] = useState(null);
 
   useEffect(() => {
+    // fetchStaff: to handle client requests for fetchStaff and it processes the request to interact with database/AI and returns a response
     const fetchStaff = async () => {
       try {
         const response = await axios.get(`${API_URL}/admin/staff`);
@@ -18,6 +20,7 @@ const DepartmentsView = ({ reports, API_URL }) => {
     fetchStaff();
   }, [API_URL]);
 
+  // handleAssign: to handle client requests for handleAssign and it processes the request to interact with database/AI and returns a response
   const handleAssign = async (reportId, staffId) => {
     try {
       await axios.post(`${API_URL}/admin/reports/${reportId}/assign`, { staff_id: staffId });

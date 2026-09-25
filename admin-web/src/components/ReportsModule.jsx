@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Download, Filter } from 'lucide-react';
 import RecentComplaints from './RecentComplaints';
 
+// ReportsModule: to handle client requests for ReportsModule and it processes the request to interact with database/AI and returns a response
 const ReportsModule = ({ reports, API_URL }) => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [categoryFilter, setCategoryFilter] = useState('All');
@@ -12,6 +13,7 @@ const ReportsModule = ({ reports, API_URL }) => {
     return true;
   });
 
+  // exportToCSV: to handle client requests for exportToCSV and it processes the request to interact with database/AI and returns a response
   const exportToCSV = () => {
     const headers = ['ID', 'Category', 'Description', 'Department', 'Location', 'Status', 'Reported By', 'Date'];
     const csvContent = [

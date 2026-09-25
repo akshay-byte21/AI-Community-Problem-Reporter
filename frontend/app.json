@@ -28,7 +28,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "b5919a01-f1e9-4d28-a3b7-09f736accd92"
+        "projectId": "e634f127-c26c-432c-b6da-f2c8bb655890"
       }
     },
     "plugins": [
@@ -47,6 +47,6 @@
       "expo-image-picker",
       "expo-notifications"
     ],
-    "owner": "gaganesh2196"
+    "owner": "akshay_ganesh_gantakura"
   }
 }

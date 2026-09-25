@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ArrowLeft, Search } from 'lucide-react';
 
+// UsersView: to handle client requests for UsersView and it processes the request to interact with database/AI and returns a response
 const UsersView = ({ API_URL, reports }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -9,6 +10,7 @@ const UsersView = ({ API_URL, reports }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
+    // fetchUsers: to handle client requests for fetchUsers and it processes the request to interact with database/AI and returns a response
     const fetchUsers = async () => {
       try {
         const response = await axios.get(`${API_URL}/admin/users`);
@@ -22,6 +24,7 @@ const UsersView = ({ API_URL, reports }) => {
     fetchUsers();
   }, [API_URL]);
 
+  // formatDate: to handle client requests for formatDate and it processes the request to interact with database/AI and returns a response
   const formatDate = (dateString) => {
     const d = new Date(dateString);
     return `${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;

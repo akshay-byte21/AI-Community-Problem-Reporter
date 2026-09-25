@@ -70,10 +70,23 @@ async function initDB() {
       )
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id)
+      )
+    `);
+
     // Enable Row Level Security to fix Supabase security alerts
     await client.query(`ALTER TABLE users ENABLE ROW LEVEL SECURITY;`);
     await client.query(`ALTER TABLE staff ENABLE ROW LEVEL SECURITY;`);
     await client.query(`ALTER TABLE reports ENABLE ROW LEVEL SECURITY;`);
+    await client.query(`ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;`);
 
     // Performance Optimization: Add Indexes
     await client.query(`CREATE INDEX IF NOT EXISTS idx_users_identifier ON users(identifier);`);

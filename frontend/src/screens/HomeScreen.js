@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import axios from 'axios';
 
+// HomeScreen: to handle client requests for HomeScreen and it processes the request to interact with database/AI and returns a response
 const HomeScreen = ({ navigation }) => {
   const { userToken, API_URL, logout } = useContext(AuthContext);
   const [reports, setReports] = useState([]);
@@ -15,6 +16,7 @@ const HomeScreen = ({ navigation }) => {
   const [menuVisible, setMenuVisible] = useState(false);
   const [slideAnim] = useState(new Animated.Value(-Dimensions.get('window').width));
 
+  // toggleMenu: to handle client requests for toggleMenu and it processes the request to interact with database/AI and returns a response
   const toggleMenu = () => {
     if (menuVisible) {
       Animated.timing(slideAnim, {
@@ -44,6 +46,7 @@ const HomeScreen = ({ navigation }) => {
     }, [userToken])
   );
 
+  // fetchUser: to handle client requests for fetchUser and it processes the request to interact with database/AI and returns a response
   const fetchUser = async () => {
     try {
       const res = await axios.get(`${API_URL}/user`, {
@@ -63,6 +66,7 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
+  // fetchReports: to handle client requests for fetchReports and it processes the request to interact with database/AI and returns a response
   const fetchReports = async () => {
     try {
       const res = await axios.get(`${API_URL}/reports`, {
@@ -75,6 +79,7 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
+  // getCategoryCount: to handle client requests for getCategoryCount and it processes the request to interact with database/AI and returns a response
   const getCategoryCount = (catName) => {
     if (catName === 'Others') {
       return allReports.filter(r => !['Road', 'Garbage', 'Water', 'Street Light'].includes(r.category)).length;
@@ -82,6 +87,7 @@ const HomeScreen = ({ navigation }) => {
     return allReports.filter(r => r.category === catName).length;
   };
 
+  // formatDateTime: to handle client requests for formatDateTime and it processes the request to interact with database/AI and returns a response
   const formatDateTime = (dateStr) => {
     const reportDate = new Date(dateStr);
     return reportDate.toLocaleString('en-IN', {
@@ -115,7 +121,7 @@ const HomeScreen = ({ navigation }) => {
             <Text style={styles.greeting}>Hello, {userName}! 👋</Text>
             <Text style={styles.subGreeting}>Let's make our community better</Text>
           </View>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Notifications')}>
             <Ionicons name="notifications-outline" size={28} color="#333" />
           </TouchableOpacity>
         </View>

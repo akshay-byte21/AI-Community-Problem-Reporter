@@ -37,6 +37,7 @@ const CustomTabBarButton = ({ children, onPress }) => (
   </TouchableOpacity>
 );
 
+// HomeTabs: to handle client requests for HomeTabs and it processes the request to interact with database/AI and returns a response
 const HomeTabs = () => {
   const navigation = useNavigation();
 

@@ -2,37 +2,44 @@ import React, { useState, useEffect } from 'react';
 import { Eye, X, UserPlus } from 'lucide-react';
 import axios from 'axios';
 
+// RecentComplaints: to handle client requests for RecentComplaints and it processes the request to interact with database/AI and returns a response
 const RecentComplaints = ({ reports, API_URL }) => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [assignModal, setAssignModal] = useState({ isOpen: false, report: null });
   const [staffList, setStaffList] = useState([]);
   const [selectedStaff, setSelectedStaff] = useState('');
 
+  // getBadgeClass: to handle client requests for getBadgeClass and it processes the request to interact with database/AI and returns a response
   const getBadgeClass = (category) => {
     const cls = category.toLowerCase().replace(' ', '');
     return `badge badge-${cls}`;
   };
 
+  // getStatusClass: to handle client requests for getStatusClass and it processes the request to interact with database/AI and returns a response
   const getStatusClass = (status) => {
     const cls = status.toLowerCase().replace(' ', '');
     return `status-badge status-${cls}`;
   };
 
+  // getPriorityClass: to handle client requests for getPriorityClass and it processes the request to interact with database/AI and returns a response
   const getPriorityClass = (priority) => {
     return `priority-badge priority-${priority.toLowerCase()}`;
   };
 
+  // getPriority: to handle client requests for getPriority and it processes the request to interact with database/AI and returns a response
   const getPriority = (category) => {
     if (category === 'Road Damage' || category === 'Water Supply') return 'High';
     if (category === 'Street Light') return 'Medium';
     return 'Low';
   };
 
+  // formatDate: to handle client requests for formatDate and it processes the request to interact with database/AI and returns a response
   const formatDate = (dateString) => {
     const d = new Date(dateString);
     return `${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}\n${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
   };
 
+  // handleAssignClick: to handle client requests for handleAssignClick and it processes the request to interact with database/AI and returns a response
   const handleAssignClick = async (report) => {
     setAssignModal({ isOpen: true, report });
     try {
@@ -61,6 +68,7 @@ const RecentComplaints = ({ reports, API_URL }) => {
     }
   };
 
+  // submitAssignment: to handle client requests for submitAssignment and it processes the request to interact with database/AI and returns a response
   const submitAssignment = async () => {
     if (!selectedStaff) return;
     try {

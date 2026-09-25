@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
 
+// ReportsScreen: to handle client requests for ReportsScreen and it processes the request to interact with database/AI and returns a response
 const ReportsScreen = ({ navigation, route }) => {
   const { userToken, API_URL } = useContext(AuthContext);
   const [reports, setReports] = useState([]);
@@ -17,6 +18,7 @@ const ReportsScreen = ({ navigation, route }) => {
     }, [filterCategory])
   );
 
+  // fetchReports: to handle client requests for fetchReports and it processes the request to interact with database/AI and returns a response
   const fetchReports = async () => {
     try {
       const res = await axios.get(`${API_URL}/reports`, {
@@ -40,6 +42,7 @@ const ReportsScreen = ({ navigation, route }) => {
     }
   };
 
+  // formatDateTime: to handle client requests for formatDateTime and it processes the request to interact with database/AI and returns a response
   const formatDateTime = (dateStr) => {
     const reportDate = new Date(dateStr);
     return reportDate.toLocaleString('en-IN', {

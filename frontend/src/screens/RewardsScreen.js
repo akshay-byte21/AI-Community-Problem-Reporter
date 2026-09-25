@@ -11,6 +11,7 @@ const REWARDS = [
   { id: 4, name: 'Civic Hero Certificate', cost: 2000, icon: 'ribbon-outline', color: '#F59E0B' },
 ];
 
+// RewardsScreen: to handle client requests for RewardsScreen and it processes the request to interact with database/AI and returns a response
 const RewardsScreen = ({ navigation }) => {
   const { userToken, API_URL } = useContext(AuthContext);
   const [points, setPoints] = useState(0);
@@ -21,6 +22,7 @@ const RewardsScreen = ({ navigation }) => {
     fetchPoints();
   }, []);
 
+  // fetchPoints: to handle client requests for fetchPoints and it processes the request to interact with database/AI and returns a response
   const fetchPoints = async () => {
     try {
       const res = await axios.get(`${API_URL}/user`, {
@@ -35,6 +37,7 @@ const RewardsScreen = ({ navigation }) => {
     }
   };
 
+  // handleClaim: to handle client requests for handleClaim and it processes the request to interact with database/AI and returns a response
   const handleClaim = async (reward) => {
     if (points < reward.cost) {
       Alert.alert('Not Enough Points', `You need ${reward.cost - points} more points to claim this reward!`);

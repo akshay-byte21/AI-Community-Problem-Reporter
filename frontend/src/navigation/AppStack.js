@@ -10,9 +10,11 @@ import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import RewardsScreen from '../screens/RewardsScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import NameSetupScreen from '../screens/NameSetupScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 
 const Stack = createStackNavigator();
 
+// AppStack: to handle client requests for AppStack and it processes the request to interact with database/AI and returns a response
 const AppStack = () => {
   return (
     <Stack.Navigator 
@@ -35,6 +37,7 @@ const AppStack = () => {
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       <Stack.Screen name="Rewards" component={RewardsScreen} />
       <Stack.Screen name="Reports" component={ReportsScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS }} />
     </Stack.Navigator>
   );
 };

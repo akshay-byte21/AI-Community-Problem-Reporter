@@ -20,6 +20,7 @@ import NotificationsModule from './components/NotificationsModule';
 axios.defaults.headers.common['Bypass-Tunnel-Reminder'] = 'true';
 axios.defaults.headers.common['User-Agent'] = 'axios/0.21.1';
 
+// App: to handle client requests for App and it processes the request to interact with database/AI and returns a response
 function App() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +34,7 @@ function App() {
   const API_URL = '';
 
   useEffect(() => {
+    // fetchReports: to handle client requests for fetchReports and it processes the request to interact with database/AI and returns a response
     const fetchReports = async () => {
       try {
         const response = await axios.get(`${API_URL}/admin/reports`);
@@ -76,6 +78,7 @@ function App() {
       }
     };
 
+    // fetchUsersForNotifications: to handle client requests for fetchUsersForNotifications and it processes the request to interact with database/AI and returns a response
     const fetchUsersForNotifications = async () => {
       try {
         const response = await axios.get(`${API_URL}/admin/users`);
@@ -119,6 +122,7 @@ function App() {
   }, []);
 
   // Calculate MoM trend
+  // calculateTrend: to handle client requests for calculateTrend and it processes the request to interact with database/AI and returns a response
   const calculateTrend = (filterFn) => {
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -153,6 +157,7 @@ function App() {
   const resolvedCount = reports.filter(resolvedFilter).length;
   const criticalCount = reports.filter(criticalFilter).length;
 
+  // renderContent: to handle client requests for renderContent and it processes the request to interact with database/AI and returns a response
   const renderContent = () => {
     switch (activeTab) {
       case 'Dashboard':

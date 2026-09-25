@@ -404,11 +404,11 @@ app.post('/agent/resolve', authenticateAgent, memoryUpload.single('image'), asyn
             2. Feature Matching (Environment Check): Scan the SECOND (RIGHT) image for those exact same permanent structural anchors. Do the mathematical geometry, perspective, and solid geographical objects match perfectly? (NOTE: If BOTH images are photos of a computer screen, that is acceptable for testing, but their displayed contents/environment must match). If the permanent geographical layout matches perfectly, you must ignore any discrepancies in temporary biological objects (like plants blooming, dying, or changing).
             3. Delta Analysis (Resolution Check): If the permanent environment matches perfectly, compare the specific area where the civic issue was in the FIRST image. Has the damage or issue been physically repaired/fixed in the SECOND image?
 
-            CRITICAL RULE: You must be extremely smart and detailed in your reasoning. If the permanent structural anchors in the SECOND image do not perfectly match the FIRST image (e.g., missing guardrail, completely reversed spatial layout, different road curve, different permanent background), you MUST return "valid": false and provide a clear, descriptive reason to the agent about exactly what did not match. 
-
+                        CRITICAL RULE: You must be extremely smart and detailed in your reasoning. If the permanent structural anchors in the SECOND image do not perfectly match the FIRST image (e.g., missing guardrail, completely reversed spatial layout, different road curve, different permanent background), you MUST return "valid": false and provide a clear, descriptive reason focusing on the BACKGROUND MISMATCH.
+            
             Respond ONLY with a JSON object in this exact format:
             {
-                "reason": "Provide a natural, conversational explanation (2-3 sentences max). If rejected, write it like: 'The uploaded resolution image is unrelated to the reported issue. The original photo shows [feature], while the after photo shows [different feature]. The environments and subjects do not match.'",
+                "reason": "If rejected because the environment does not match, write exactly: 'Verification Failed. The background location in the resolution photo does not match the original reported location. The original photo shows [describe original background, e.g., dirt road with people], but the new photo shows [describe new background, e.g., a paved walkway by a reservoir]. You must take the photo at the correct location.' If rejected because it's not fixed, say: 'The environment matches, but the civic issue (e.g. water leak) is still visible and has not been repaired.'",
                 "environment_match": boolean,
                 "issue_resolved": boolean,
                 "valid": boolean

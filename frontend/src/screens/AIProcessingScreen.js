@@ -38,79 +38,68 @@ const AIProcessingScreen = ({ navigation, route }) => {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    // analyzeImage: to handle client requests for analyzeImage and it processes the request to interact with database/AI and returns a response
     const analyzeImage = async () => {
-      try {
-        const formData = new FormData();
-        formData.append('image', {
-          uri: imageUri,
-          name: 'photo.jpg',
-          type: 'image/jpeg'
-        });
-        if (location) {
-          formData.append('latitude', location.latitude);
-          formData.append('longitude', location.longitude);
-        }
-        if (address) {
-          formData.append('address', address);
-        }
+    setApiError(false);
+    setApiResult(null);
+    setStep(0);
+    setProgress(0);
+    try {
+      const formData = new FormData();
+      formData.append('image', { uri: imageUri, name: 'photo.jpg', type: 'image/jpeg' });
+      if (location) { formData.append('latitude', location.latitude); formData.append('longitude', location.longitude); }
+      if (address) formData.append('address', address);
 
-        const res = await axios.post(`${API_URL}/analyze-image`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${userToken}`
-          }
-        });
-        
-        setApiResult(res.data);
-      } catch (err) {
-        console.error("AI Analysis error", err);
-        setApiError(true);
-      }
-    };
-    
-    analyzeImage();
-  }, []);
+      const res = await axios.post(`${API_URL}/analyze-image`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${userToken}` }
+      });
+      setApiResult(res.data);
+    } catch (err) {
+      console.error("AI Analysis error", err);
+      setApiError(true);
+    }
+  };
+
+  useEffect(() => { analyzeImage(); }, []);
 
   useEffect(() => {
-    // When API result is ready, bypass the artificial animation and process immediately
-    if (apiResult || apiError) {
-      setStep(3);
-      setProgress(1);
-      
+    if (apiResult) {
+      setStep(3); setProgress(1);
       setTimeout(() => {
         const validCategories = ['Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'];
-        
-        // If the AI completely failed (network error or rate limit), let the user proceed manually!
-        if (apiError || (apiResult && apiResult.category === 'Unidentified Issue')) {
-          navigation.replace('ReviewComplaint', {
-            imageUri,
-            location,
-            address,
-            aiCategory: 'Unknown Problem',
-            aiDescription: '', // Leave empty so user can type it themselves without backspacing errors
-            department: 'General Administration'
-          });
-        } 
-        // If the AI successfully processed the image, but determined it's NOT a civic issue (e.g. it's a mug/keyboard)
-        else if (!apiResult || !apiResult.category || !validCategories.includes(apiResult.category)) {
+        if (apiResult.category === 'Unidentified Issue') {
+          navigation.replace('ReviewComplaint', { imageUri, location, address, aiCategory: 'Unknown Problem', aiDescription: '', department: 'General Administration' });
+        } else if (!apiResult.category || !validCategories.includes(apiResult.category)) {
           setIsInvalid(true);
-        } 
-        // If the AI successfully found a valid civic issue
-        else {
-          navigation.replace('ReviewComplaint', {
-            imageUri,
-            location,
-            address,
-            aiCategory: apiResult.category,
-            aiDescription: apiResult.description,
-            department: apiResult.department
-          });
+        } else {
+          navigation.replace('ReviewComplaint', { imageUri, location, address, aiCategory: apiResult.category, aiDescription: apiResult.description, department: apiResult.department });
         }
-      }, 300); // tiny visual delay for smooth transition
+      }, 300);
+    } else if (apiError) {
+      setProgress(0);
     }
   }, [apiResult, apiError]);
+
+  if (apiError) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          <Ionicons name="wifi-outline" size={80} color="#EF4444" style={{ marginBottom: 20 }} />
+          <Text style={styles.title}>Network Error</Text>
+          <Text style={styles.subtitle}>
+            We couldn't reach the AI servers. Please ensure you are connected to the internet and try again.
+          </Text>
+          <TouchableOpacity style={[styles.retakeButton, { backgroundColor: '#1B8C4A', marginTop: 30 }]} onPress={analyzeImage}>
+            <Ionicons name="refresh" size={20} color="#fff" />
+            <Text style={styles.retakeButtonText}>Retry AI Analysis</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.retakeButton, { marginTop: 15 }]} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={20} color="#fff" />
+            <Text style={styles.retakeButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (isInvalid) {
     return (

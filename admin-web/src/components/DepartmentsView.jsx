@@ -39,8 +39,13 @@ const DepartmentsView = ({ reports, API_URL }) => {
   // handleCreateAgent: Admin-only function to register a new agent in this department
   const handleCreateAgent = async (e) => {
     e.preventDefault();
-    if (!newAgentName.trim() || !newAgentPhone.trim()) {
-      alert('Please enter agent name and phone number');
+    const cleanedPhone = newAgentPhone.replace(/\D/g, '');
+    if (!newAgentName.trim()) {
+      alert('Please enter agent name');
+      return;
+    }
+    if (cleanedPhone.length !== 10) {
+      alert('Phone number must be exactly 10 digits');
       return;
     }
 
@@ -48,7 +53,7 @@ const DepartmentsView = ({ reports, API_URL }) => {
     try {
       await axios.post(`${API_URL}/admin/staff`, {
         name: newAgentName.trim(),
-        phone: newAgentPhone.trim(),
+        phone: cleanedPhone,
         department: selectedDept
       });
       alert(`Agent ${newAgentName} added successfully to ${selectedDept}!`);
@@ -291,15 +296,25 @@ const DepartmentsView = ({ reports, API_URL }) => {
                 </div>
 
                 <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.35rem' }}>
-                    Phone Number (Login ID)
-                  </label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                    <label style={{ fontSize: '0.85rem', fontWeight: 500 }}>
+                      Phone Number (Login ID)
+                    </label>
+                    <span style={{ 
+                      fontSize: '0.75rem', 
+                      color: newAgentPhone.length === 10 ? '#15803d' : 'var(--text-secondary)',
+                      fontWeight: newAgentPhone.length === 10 ? 600 : 400
+                    }}>
+                      {newAgentPhone.length}/10 digits
+                    </span>
+                  </div>
                   <input
                     type="tel"
                     required
-                    placeholder="e.g. 9876543210"
+                    maxLength={10}
+                    placeholder="10-digit mobile number"
                     value={newAgentPhone}
-                    onChange={(e) => setNewAgentPhone(e.target.value)}
+                    onChange={(e) => setNewAgentPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.9rem', boxSizing: 'border-box' }}
                   />
                 </div>

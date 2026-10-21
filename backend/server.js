@@ -603,20 +603,25 @@ app.get('/admin/staff', async (req, res) => {
 // /admin/staff: to handle client requests for /admin/staff and it processes the request to interact with database/AI and returns a response
 app.post('/admin/staff', async (req, res) => {
   const { name, phone, department } = req.body;
-  if (!name || !phone || !department) {
+  const cleanedPhone = (phone || '').toString().replace(/\D/g, '');
+  if (!name || !cleanedPhone || !department) {
     return res.status(400).json({ error: 'Name, phone, and department are required' });
+  }
+
+  if (cleanedPhone.length !== 10) {
+    return res.status(400).json({ error: 'Phone number must be exactly 10 digits' });
   }
 
   try {
     // Check if agent phone already exists
-    const existing = await db.query(`SELECT id FROM staff WHERE phone = $1`, [phone.trim()]);
+    const existing = await db.query(`SELECT id FROM staff WHERE phone = $1`, [cleanedPhone]);
     if (existing.rows.length > 0) {
       return res.status(400).json({ error: 'An agent with this phone number already exists' });
     }
 
     const result = await db.query(
       `INSERT INTO staff (name, phone, department) VALUES ($1, $2, $3) RETURNING *`,
-      [name.trim(), phone.trim(), department.trim()]
+      [name.trim(), cleanedPhone, department.trim()]
     );
     res.status(201).json({ message: 'Agent created successfully', staff: result.rows[0] });
   } catch (err) {

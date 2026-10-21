@@ -191,7 +191,7 @@ const DepartmentsView = ({ reports, API_URL }) => {
                             }}>
                               <Check size={12} /> Assigned
                             </span>
-                            {deptStaff.length > 0 && (
+                            {deptStaff.filter(s => s.name !== report.staff_name && s.id !== report.assigned_staff_id).length > 0 && (
                               <select 
                                 style={{ 
                                   padding: '0.25rem 0.45rem', 
@@ -207,11 +207,13 @@ const DepartmentsView = ({ reports, API_URL }) => {
                                 }}
                               >
                                 <option value="" disabled>Reassign...</option>
-                                {deptStaff.map(s => (
-                                  <option key={s.id} value={s.id}>
-                                    {s.name} {s.name === report.staff_name ? '(Current)' : ''}
-                                  </option>
-                                ))}
+                                {deptStaff
+                                  .filter(s => s.name !== report.staff_name && s.id !== report.assigned_staff_id)
+                                  .map(s => (
+                                    <option key={s.id} value={s.id}>
+                                      {s.name}
+                                    </option>
+                                  ))}
                               </select>
                             )}
                           </div>

@@ -764,13 +764,64 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
         
         if (!accountId || !apiToken) throw new Error("Cloudflare credentials missing");
 
-        const promptText = `You are a highly intelligent civic AI assistant. Your job is to first detect the objects in the image (like a road, a pipe, a street light), and then analyze if those objects are actually damaged or causing a civic problem (e.g., potholes, leaks, garbage).
-          CRITICAL RULES:
-          1. Identify Object: If the image shows a completely unrelated object (like a mug, a person, a laptop, or an indoor item), you must identify the object. Return JSON: {"category": "Invalid", "description": "This appears to be a [insert object name, e.g. coffee mug]. This is not a civic object. Please upload a photo of a civic issue.", "department": "None"}.
-          2. Check for Damage: If you DO identify a civic object (like a road or a water pipe), look very closely for ACTUAL damage (water spraying, deep potholes, cut wires, overflowing garbage). Do NOT assume or guess "potential" future damage.
-          3. No Problem Detected: If the civic object is perfectly fine (e.g., a smooth road, a dry intact pipe, a clean street), you MUST return JSON: {"category": "Invalid", "description": "The [insert object name, e.g. road/pipe] appears to be in good condition. I didn't find any visible issues (like leaks or potholes) here. No problem detected, all is fine.", "department": "None"}.
-          4. Issue Detected: ONLY if there is clear, visible damage or an active civic issue, return a JSON object with 'category' (e.g., 'Road', 'Garbage', 'Water', 'Sanitary', 'Electricity'), 'description' (Detailed 3-4 sentence report describing the exact damage and severity), and 'department' (e.g., 'Municipal Corporation (Road Maintenance)').
-          Return ONLY valid JSON. No conversational text.`;
+        const promptText = `You are a strict AI civic grievance inspector. Inspect this image to determine if it shows a genuine, physically damaged public civic issue requiring municipal repair.
+
+Follow these inspection steps:
+
+STEP 1: IS IT A PHOTO OF A COMPUTER/PHONE SCREEN, PRINTED PAPER, OR BLURRY?
+If taken of a monitor, TV, phone screen, paper printout, or pitch black/blurry:
+Return JSON:
+{
+  "category": "Invalid",
+  "rejection_reason": "SCREEN_OR_BLURRY",
+  "detected_object": "Screen or Blurry Image",
+  "title": "Unclear or Screen Photo",
+  "description": "This photo appears to be taken from a screen, monitor, or is too blurry. Please capture a real, clear photo of the physical site.",
+  "department": "None"
+}
+
+STEP 2: IS IT A PERSONAL, INDOOR, OR NON-CIVIC OBJECT?
+Public civic infrastructure is ONLY outdoor municipal assets: roads, public street lights, municipal water mains/pipes, sewage drains, or public garbage dumps.
+If this is a personal, indoor, or non-civic item (e.g. laptop, mobile phone, coffee mug, bottle, food, animal, person, selfie, indoor room, desk, furniture, car without street damage, shoes, clothing):
+Identify what is seen.
+Return JSON:
+{
+  "category": "Invalid",
+  "rejection_reason": "NON_CIVIC_OBJECT",
+  "detected_object": "NAME_OF_OBJECT",
+  "title": "Non-Civic Object Detected",
+  "description": "This photo shows a NAME_OF_OBJECT. This is not public civic infrastructure. Please take a photo of an outdoor municipal problem.",
+  "department": "None"
+}
+(Replace NAME_OF_OBJECT with the actual object you see, e.g. Coffee Mug, Laptop, Indoor Desk)
+
+STEP 3: IS THE CIVIC OBJECT INTACT AND UNDAMAGED?
+If this shows a legitimate civic asset (like an asphalt road, pavement, public street light, water pipe, or clean street) BUT there is NO visible damage, NO pothole, NO water burst, and NO overflowing garbage:
+Return JSON:
+{
+  "category": "Invalid",
+  "rejection_reason": "NO_DAMAGE_DETECTED",
+  "detected_object": "NAME_OF_ASSET",
+  "title": "No Damage Detected",
+  "description": "The NAME_OF_ASSET appears to be in good physical condition with no visible damage, leaks, or potholes. No municipal repair action is required.",
+  "department": "None"
+}
+(Replace NAME_OF_ASSET with the asset name, e.g. Asphalt Road, Public Street Light, Water Pipe)
+
+STEP 4: IS THERE CLEAR, VISIBLE PHYSICAL DAMAGE?
+ONLY if there is active, visible damage or an active civic issue.
+Category MUST be one of: "Road", "Garbage", "Water", "Sanitary", "Street Light", "Electricity".
+Return JSON:
+{
+  "category": "EXACT_CATEGORY",
+  "rejection_reason": "NONE",
+  "detected_object": "NAME_OF_ISSUE",
+  "title": "Civic Issue Detected",
+  "description": "Detailed 2-3 sentence description of the visible damage, safety hazard, and required municipal attention.",
+  "department": "APPROPRIATE_DEPARTMENT"
+}
+
+CRITICAL: Return ONLY raw JSON without markdown formatting or code blocks.`;
 
         const response = await fetch(
             `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3.2-11b-vision-instruct`,
@@ -803,6 +854,9 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
         if (typeof text === 'object' && text !== null) {
             data = {
                 category: text.category || "Invalid",
+                rejection_reason: text.rejection_reason || null,
+                detected_object: text.detected_object || null,
+                title: text.title || null,
                 description: text.description || "Civic issue detected.",
                 department: text.department || "Municipal Corporation"
             };
@@ -813,7 +867,9 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
         if (!parsedSuccessfully) {
             if (typeof text !== 'string') text = String(text);
             
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            // Clean markdown code blocks if present
+            const cleanedText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+            const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
 
             if (jsonMatch) {
                 try {
@@ -828,7 +884,6 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
             if (!parsedSuccessfully) {
                 // Fallback: Try to parse markdown if the AI failed to use JSON
                 const catMatch = text.match(/\*\*Category:\*\*\s*([^\n]*)/i) || text.match(/Category:\s*([^\n]*)/i);
-                // Description might be multi-line or single-line. We will just take the rest of the paragraph.
                 const descMatch = text.match(/\*\*Description:\*\*\s*([\s\S]*?)(?=\*\*Department:|$)/i) || text.match(/Description:\s*([\s\S]*?)(?=Department:|$)/i);
                 const deptMatch = text.match(/\*\*Department:\*\*\s*([^\n]*)/i) || text.match(/Department:\s*([^\n]*)/i);
 
@@ -839,8 +894,43 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
                         department: deptMatch ? deptMatch[1].replace(/[\*\_]/g, '').trim() : "Municipal Corporation"
                     };
                     success = true;
+                    parsedSuccessfully = true;
                 } else {
                     throw new Error("No JSON or valid markdown found in response: " + text);
+                }
+            }
+        }
+
+        if (parsedSuccessfully && data) {
+            // Clean up any residual template placeholders
+            if (data.description) {
+                data.description = data.description
+                    .replace(/\[insert object name[^\]]*\]/gi, data.detected_object || 'this item')
+                    .replace(/\[object name\]/gi, data.detected_object || 'this item')
+                    .replace(/NAME_OF_OBJECT/g, data.detected_object || 'this item')
+                    .replace(/NAME_OF_ASSET/g, data.detected_object || 'this infrastructure');
+            }
+
+            const validCategories = ['Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'];
+            const isKnownCivic = data.category && validCategories.includes(data.category);
+
+            if (!isKnownCivic || data.category === 'Invalid') {
+                data.category = 'Invalid';
+                data.department = 'None';
+                if (!data.rejection_reason) {
+                    const descLower = (data.description || '').toLowerCase();
+                    if (descLower.includes('screen') || descLower.includes('blurry') || descLower.includes('monitor')) {
+                        data.rejection_reason = 'SCREEN_OR_BLURRY';
+                    } else if (descLower.includes('good condition') || descLower.includes('no visible damage') || descLower.includes('no damage') || descLower.includes('no problem') || descLower.includes('intact')) {
+                        data.rejection_reason = 'NO_DAMAGE_DETECTED';
+                    } else {
+                        data.rejection_reason = 'NON_CIVIC_OBJECT';
+                    }
+                }
+                if (!data.title) {
+                    if (data.rejection_reason === 'NO_DAMAGE_DETECTED') data.title = 'No Damage Detected';
+                    else if (data.rejection_reason === 'SCREEN_OR_BLURRY') data.title = 'Unclear or Screen Photo';
+                    else data.title = 'Non-Civic Object Detected';
                 }
             }
         }
@@ -852,20 +942,12 @@ app.post('/analyze-image', authenticateToken, memoryUpload.single('image'), asyn
         }
         if (attempts < 3) await sleep(Math.pow(2, attempts) * 1000); // Exponential backoff
         if (attempts >= 3) {
-          let niceMessage = "The AI servers are currently overloaded. Please try again later.";
-          try {
-              const parsed = JSON.parse(err.message);
-              if (parsed.error && parsed.error.message) {
-                  niceMessage = parsed.error.message;
-              }
-          } catch(e) {
-              if (err.message) niceMessage = err.message;
-          }
-          
           return res.json({
-            category: 'Unidentified Issue',
-            description: `Could not automatically describe this issue: ${niceMessage}`,
-            department: 'General Administration'
+            category: 'Invalid',
+            rejection_reason: 'SERVER_ERROR',
+            title: 'Analysis Unavailable',
+            description: 'Could not clearly analyze this image. Please ensure good lighting and take a clear, direct photo of the physical civic issue.',
+            department: 'None'
           });
         }
       }

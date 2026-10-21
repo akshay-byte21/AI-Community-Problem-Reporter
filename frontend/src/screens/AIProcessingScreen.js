@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Progress from 'react-native-progress';
 import { AuthContext } from '../context/AuthContext';
@@ -66,12 +66,17 @@ const AIProcessingScreen = ({ navigation, route }) => {
       setStep(3); setProgress(1);
       setTimeout(() => {
         const validCategories = ['Road', 'Garbage', 'Water', 'Sanitary', 'Street Light', 'Electricity'];
-        if (apiResult.category === 'Unidentified Issue') {
-          navigation.replace('ReviewComplaint', { imageUri, location, address, aiCategory: 'Unknown Problem', aiDescription: '', department: 'General Administration' });
-        } else if (!apiResult.category || !validCategories.includes(apiResult.category)) {
-          setIsInvalid(true);
+        if (apiResult.category && validCategories.includes(apiResult.category)) {
+          navigation.replace('ReviewComplaint', {
+            imageUri,
+            location,
+            address,
+            aiCategory: apiResult.category,
+            aiDescription: apiResult.description,
+            department: apiResult.department
+          });
         } else {
-          navigation.replace('ReviewComplaint', { imageUri, location, address, aiCategory: apiResult.category, aiDescription: apiResult.description, department: apiResult.department });
+          setIsInvalid(true);
         }
       }, 300);
     } else if (apiError) {
@@ -102,30 +107,130 @@ const AIProcessingScreen = ({ navigation, route }) => {
   }
 
   if (isInvalid) {
+    const reason = apiResult?.rejection_reason || 'OTHER';
+    const isNoDamage = reason === 'NO_DAMAGE_DETECTED';
+    const isScreenOrBlurry = reason === 'SCREEN_OR_BLURRY';
+    const isNonCivic = reason === 'NON_CIVIC_OBJECT';
+
+    const iconName = isNoDamage 
+      ? 'checkmark-circle-outline' 
+      : isScreenOrBlurry 
+        ? 'scan-outline' 
+        : 'alert-circle';
+
+    const iconColor = isNoDamage 
+      ? '#059669' 
+      : isScreenOrBlurry 
+        ? '#D97706' 
+        : '#EF4444';
+
+    const defaultTitle = isNoDamage 
+      ? 'No Damage Detected' 
+      : isScreenOrBlurry 
+        ? 'Unclear or Screen Photo' 
+        : isNonCivic 
+          ? 'Non-Civic Object Detected' 
+          : 'Image Rejected';
+
+    const titleText = apiResult?.title || defaultTitle;
+    const detectedObj = apiResult?.detected_object;
+
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
-          <Ionicons name="close-circle" size={80} color="#EF4444" style={{ marginBottom: 20 }} />
-          <Text style={styles.title}>Image Rejected</Text>
-          <Text style={styles.subtitle}>
-            {apiResult?.description || "This image doesn’t show a supported civic issue."}
-          </Text>
-          <View style={styles.invalidInfoContainer}>
-             <Text style={styles.invalidInfoText}>We only accept reports for:</Text>
-             <Text style={styles.invalidListText}>• Road & Potholes</Text>
-             <Text style={styles.invalidListText}>• Electricity & Street Lights</Text>
-             <Text style={styles.invalidListText}>• Sanitary & Sewage</Text>
-             <Text style={styles.invalidListText}>• Water Leakage</Text>
-             <Text style={styles.invalidListText}>• Garbage & Solid Waste</Text>
+        <View style={styles.rejectionHeader}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBackBtn}>
+            <Ionicons name="arrow-back" size={24} color="#111827" />
+          </TouchableOpacity>
+          <Text style={styles.rejectionHeaderTitle}>Verification Result</Text>
+          <View style={{ width: 24 }} />
+        </View>
+
+        <ScrollView 
+          contentContainerStyle={styles.rejectionScroll} 
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.iconWrapper, { backgroundColor: isNoDamage ? '#ECFDF5' : isScreenOrBlurry ? '#FFFBEB' : '#FEF2F2' }]}>
+            <Ionicons name={iconName} size={64} color={iconColor} />
           </View>
+
+          <Text style={styles.rejectionTitle}>{titleText}</Text>
+
+          {detectedObj && (
+            <View style={[styles.detectedBadge, { backgroundColor: isNoDamage ? '#D1FAE5' : isScreenOrBlurry ? '#FEF3C7' : '#FEE2E2' }]}>
+              <Ionicons 
+                name={isNoDamage ? 'shield-checkmark' : 'information-circle'} 
+                size={16} 
+                color={isNoDamage ? '#065F46' : isScreenOrBlurry ? '#92400E' : '#991B1B'} 
+              />
+              <Text style={[styles.detectedBadgeText, { color: isNoDamage ? '#065F46' : isScreenOrBlurry ? '#92400E' : '#991B1B' }]}>
+                {isNoDamage ? `Asset: ${detectedObj}` : `Identified: ${detectedObj}`}
+              </Text>
+            </View>
+          )}
+
+          <Text style={styles.rejectionDesc}>
+            {apiResult?.description || "This image does not meet our civic reporting criteria."}
+          </Text>
+
+          {/* Context-Specific Guidance Cards */}
+          {isNoDamage ? (
+            <View style={[styles.infoCard, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}>
+              <View style={styles.infoCardHeader}>
+                <Ionicons name="shield-checkmark-outline" size={20} color="#166534" />
+                <Text style={[styles.infoCardTitle, { color: '#166534' }]}>Why was this rejected?</Text>
+              </View>
+              <Text style={[styles.infoCardBody, { color: '#15803D' }]}>
+                The AI examined this public asset and confirmed it is currently in good, functional condition.
+              </Text>
+              <View style={styles.tipRow}>
+                <Ionicons name="bulb-outline" size={16} color="#166534" />
+                <Text style={[styles.tipText, { color: '#166534' }]}>
+                  If there is damaged infrastructure nearby, please move closer and photograph the exact affected area.
+                </Text>
+              </View>
+            </View>
+          ) : isScreenOrBlurry ? (
+            <View style={[styles.infoCard, { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }]}>
+              <View style={styles.infoCardHeader}>
+                <Ionicons name="camera-reverse-outline" size={20} color="#92400E" />
+                <Text style={[styles.infoCardTitle, { color: '#92400E' }]}>Physical Site Photo Required</Text>
+              </View>
+              <Text style={[styles.infoCardBody, { color: '#B45309' }]}>
+                Photos taken of computer monitors, phone screens, or unclear pictures cannot be authenticated.
+              </Text>
+              <View style={styles.tipRow}>
+                <Ionicons name="sunny-outline" size={16} color="#92400E" />
+                <Text style={[styles.tipText, { color: '#92400E' }]}>
+                  Please capture an outdoor photo directly at the physical location with clear daylight.
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.invalidInfoContainer}>
+              <Text style={styles.invalidInfoText}>We only accept public community issues:</Text>
+              <Text style={styles.invalidListText}>• Road & Potholes</Text>
+              <Text style={styles.invalidListText}>• Electricity & Street Lights</Text>
+              <Text style={styles.invalidListText}>• Sanitary & Sewage</Text>
+              <Text style={styles.invalidListText}>• Water Leakage</Text>
+              <Text style={styles.invalidListText}>• Garbage & Solid Waste</Text>
+            </View>
+          )}
+
           <TouchableOpacity 
             style={styles.retakeButton} 
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="camera-outline" size={20} color="#fff" />
+            <Ionicons name="camera" size={20} color="#fff" />
             <Text style={styles.retakeButtonText}>Retake Picture</Text>
           </TouchableOpacity>
-        </View>
+
+          <TouchableOpacity 
+            style={styles.cancelButton} 
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.cancelButtonText}>Cancel Report</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -249,40 +354,152 @@ const styles = StyleSheet.create({
   },
   invalidInfoContainer: {
     backgroundColor: '#FEE2E2',
-    padding: 20,
+    padding: 16,
     borderRadius: 12,
     width: '100%',
-    marginBottom: 40,
+    marginBottom: 24,
     borderWidth: 1,
     borderColor: '#FCA5A5',
   },
   invalidInfoText: {
     fontWeight: 'bold',
     color: '#991B1B',
-    marginBottom: 10,
-    fontSize: 16,
+    marginBottom: 8,
+    fontSize: 15,
   },
   invalidListText: {
     color: '#7F1D1D',
-    fontSize: 15,
-    marginBottom: 6,
-    marginLeft: 10,
+    fontSize: 14,
+    marginBottom: 4,
+    marginLeft: 6,
   },
   retakeButton: {
     backgroundColor: '#1B8C4A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
+    paddingVertical: 15,
+    paddingHorizontal: 24,
     borderRadius: 12,
     width: '100%',
+    shadowColor: '#1B8C4A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
   retakeButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 'bold',
-    marginLeft: 10,
+    marginLeft: 8,
+  },
+  cancelButton: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    marginTop: 10,
+  },
+  cancelButtonText: {
+    color: '#6B7280',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  rejectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  iconBackBtn: {
+    padding: 6,
+  },
+  rejectionHeaderTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  rejectionScroll: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  iconWrapper: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  rejectionTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  detectedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 16,
+  },
+  detectedBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  rejectionDesc: {
+    fontSize: 15,
+    color: '#4B5563',
+    lineHeight: 22,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  infoCard: {
+    width: '100%',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 24,
+  },
+  infoCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  infoCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  infoCardBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  tipRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#fff',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  tipText: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginLeft: 6,
+    flex: 1,
+    fontWeight: '500',
   }
 });
 

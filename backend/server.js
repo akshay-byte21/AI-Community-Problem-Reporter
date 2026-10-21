@@ -599,6 +599,31 @@ app.get('/admin/staff', async (req, res) => {
   }
 });
 
+// Admin: Create a new agent in a department
+// /admin/staff: to handle client requests for /admin/staff and it processes the request to interact with database/AI and returns a response
+app.post('/admin/staff', async (req, res) => {
+  const { name, phone, department } = req.body;
+  if (!name || !phone || !department) {
+    return res.status(400).json({ error: 'Name, phone, and department are required' });
+  }
+
+  try {
+    // Check if agent phone already exists
+    const existing = await db.query(`SELECT id FROM staff WHERE phone = $1`, [phone.trim()]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'An agent with this phone number already exists' });
+    }
+
+    const result = await db.query(
+      `INSERT INTO staff (name, phone, department) VALUES ($1, $2, $3) RETURNING *`,
+      [name.trim(), phone.trim(), department.trim()]
+    );
+    res.status(201).json({ message: 'Agent created successfully', staff: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Admin: Assign staff to a report
 // /admin/reports/:id/assign: to handle client requests for /admin/reports/:id/assign and it processes the request to interact with database/AI and returns a response
 app.post('/admin/reports/:id/assign', async (req, res) => {

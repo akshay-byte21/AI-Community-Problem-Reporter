@@ -54,7 +54,7 @@ const AppNav = () => {
         console.log('Failed to get push token for push notification!');
         return;
       }
-      token = (await Notifications.getExpoPushTokenAsync({ projectId: '7513e2f4-e817-4daf-915e-abbe6fcb13cb' })).data;
+      token = (await Notifications.getExpoPushTokenAsync({ projectId: 'e634f127-c26c-432c-b6da-f2c8bb655890' })).data;
     }
     return token;
   }

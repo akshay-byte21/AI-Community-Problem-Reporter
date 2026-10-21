@@ -57,7 +57,7 @@ const AppNavigator = () => {
       if (finalStatus !== 'granted') {
         return;
       }
-      token = (await Notifications.getExpoPushTokenAsync({ projectId: '7513e2f4-e817-4daf-915e-abbe6fcb13cb' })).data;
+      token = (await Notifications.getExpoPushTokenAsync({ projectId: '3e6ad47b-abfb-4d56-8a89-e7138241f693' })).data;
     }
     return token;
   }

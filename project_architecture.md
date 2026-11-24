@@ -32,7 +32,7 @@ Your project is a complex, full-stack ecosystem divided into four main folders. 
 
 *   `src/screens/LoginScreen.js`: Allows agents to log in securely.
 *   `src/screens/DashboardScreen.js`: Fetches and lists only the specific tasks assigned to the currently logged-in agent.
-*   `src/screens/ResolutionScreen.js`: The complex screen where an agent resolves an issue. **It contains the strict GPS logic:** it actively checks the agent's live GPS and blocks them from taking a photo unless they are physically within 50 meters of the reported coordinates.
+*   `src/screens/ResolutionScreen.js`: The complex screen where an agent resolves an issue. **It contains the strict GPS logic:** it actively checks the agent's live GPS and blocks them from taking a photo unless they are physically within 10 meters of the reported coordinates.
 
 ---
 

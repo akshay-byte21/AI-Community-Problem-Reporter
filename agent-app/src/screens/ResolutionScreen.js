@@ -60,7 +60,7 @@ const ResolutionScreen = ({ route, navigation }) => {
     if (report.lat && report.lng) {
       const dist = getDistance(loc.coords.latitude, loc.coords.longitude, report.lat, report.lng);
       setDistance(dist);
-      setIsNear(dist <= 50); // 50 meters threshold to account for standard GPS drift
+      setIsNear(dist <= 10); // 10 meters geofence threshold from raised complaint
     } else {
       // If report has no lat/lng, we can't verify. Just allow it for testing purposes.
       setIsNear(true); 
@@ -184,8 +184,18 @@ const ResolutionScreen = ({ route, navigation }) => {
                   : 'Report location unknown (Bypassed).'}
               </Text>
               {!isNear && distance !== null && (
-                <Text style={styles.errorText}>Out of range. You must be within 50 meters.</Text>
+                <Text style={styles.errorText}>Out of range. You must be within 10 meters.</Text>
               )}
+              <TouchableOpacity 
+                style={styles.refreshGpsButton} 
+                onPress={checkLocation}
+                disabled={checkingLocation}
+              >
+                <Ionicons name="refresh" size={15} color={isNear ? "#065f46" : "#991b1b"} />
+                <Text style={[styles.refreshGpsText, { color: isNear ? "#065f46" : "#991b1b" }]}>
+                  Refresh GPS
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -260,7 +270,23 @@ const styles = StyleSheet.create({
   disabledButton: { backgroundColor: '#9ca3af' },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   completedBox: { padding: 20, backgroundColor: '#d1fae5', borderRadius: 8, alignItems: 'center' },
-  completedText: { color: '#065f46', fontWeight: 'bold', fontSize: 16 }
+  completedText: { color: '#065f46', fontWeight: 'bold', fontSize: 16 },
+  refreshGpsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+  },
+  refreshGpsText: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 5,
+  }
 });
 
 export default ResolutionScreen;

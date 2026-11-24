@@ -46,4 +46,6 @@ Your project is a complex, full-stack ecosystem divided into four main folders. 
 *   `src/App.jsx`: Sets up the web routing (e.g., navigating from `/` to `/users`).
 *   `src/pages/Dashboard.jsx`: Fetches data from the backend to display visual charts, statistics, and a global map of all active issues.
 *   `src/pages/Complaints.jsx`: A data table allowing the admin to view all issues and manually assign specific agents to unsolved tasks.
+*   `src/components/AdminLogin.jsx`: Multi-district authentication portal supporting State Super-Admin (`admin`/`admin123`) and 26 individual Andhra Pradesh District Admins (e.g. `admin_visakhapatnam`/`visakhapatnam@123`).
+*   `src/data/apDistricts.js` & `backend/apDistricts.js`: Geographic boundaries, headquarters, and coordinates for all 26 AP districts, enabling district-filtered maps, isolated agent pools, and targeted complaint routing.
 *   `package.json`: Contains the commands to run the website. `npm run dev` translates the complex React code into browser-friendly JavaScript in real-time, while `npm run build` compiles it into static files ready for global deployment.

@@ -1,17 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { ArrowLeft, User, Phone, Plus, Check, X } from 'lucide-react';
+import { ArrowLeft, User, Phone, Plus, Check, X, MapPin } from 'lucide-react';
+import { AP_DISTRICTS } from '../data/apDistricts';
 
-// DepartmentsView: to handle client requests for DepartmentsView and it processes the request to interact with database/AI and returns a response
-const DepartmentsView = ({ reports, API_URL }) => {
+const DepartmentsView = ({ reports = [], API_URL, selectedDistrict = 'All Districts' }) => {
   const [staff, setStaff] = useState([]);
   const [selectedDept, setSelectedDept] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newAgentName, setNewAgentName] = useState('');
   const [newAgentPhone, setNewAgentPhone] = useState('');
+  const [newAgentDistrict, setNewAgentDistrict] = useState(selectedDistrict !== 'All Districts' ? selectedDistrict : 'Visakhapatnam');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // fetchStaff: to handle client requests for fetchStaff and it processes the request to interact with database/AI and returns a response
+  // Keep modal district in sync with header district
+  useEffect(() => {
+    if (selectedDistrict && selectedDistrict !== 'All Districts') {
+      setNewAgentDistrict(selectedDistrict);
+    }
+  }, [selectedDistrict]);
+
   const fetchStaff = async () => {
     try {
       const response = await axios.get(`${API_URL}/admin/staff`);
@@ -25,18 +32,16 @@ const DepartmentsView = ({ reports, API_URL }) => {
     fetchStaff();
   }, [API_URL]);
 
-  // handleAssign: to handle client requests for handleAssign and it processes the request to interact with database/AI and returns a response
   const handleAssign = async (reportId, staffId) => {
     try {
       await axios.post(`${API_URL}/admin/reports/${reportId}/assign`, { staff_id: staffId });
-      alert('Staff assigned successfully! Please refresh to see changes.');
+      alert('Staff assigned successfully!');
       await fetchStaff();
     } catch (error) {
       alert('Failed to assign staff');
     }
   };
 
-  // handleCreateAgent: Admin-only function to register a new agent in this department
   const handleCreateAgent = async (e) => {
     e.preventDefault();
     const cleanedPhone = newAgentPhone.replace(/\D/g, '');
@@ -54,9 +59,10 @@ const DepartmentsView = ({ reports, API_URL }) => {
       await axios.post(`${API_URL}/admin/staff`, {
         name: newAgentName.trim(),
         phone: cleanedPhone,
-        department: selectedDept
+        department: selectedDept,
+        district: newAgentDistrict
       });
-      alert(`Agent ${newAgentName} added successfully to ${selectedDept}!`);
+      alert(`Agent ${newAgentName} added successfully to ${newAgentDistrict} (${selectedDept})!`);
       setNewAgentName('');
       setNewAgentPhone('');
       setShowAddModal(false);
@@ -69,8 +75,14 @@ const DepartmentsView = ({ reports, API_URL }) => {
     }
   };
 
+  // Filter reports for the active district
+  const filteredReports = reports.filter(r => {
+    if (!selectedDistrict || selectedDistrict === 'All Districts') return true;
+    return (r.district || '').toLowerCase() === selectedDistrict.toLowerCase();
+  });
+
   const departments = {};
-  reports.forEach(report => {
+  filteredReports.forEach(report => {
     const dept = report.department || 'Unassigned';
     departments[dept] = (departments[dept] || 0) + 1;
   });
@@ -79,35 +91,45 @@ const DepartmentsView = ({ reports, API_URL }) => {
     const normalize = (str) => (str || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z]/g, '');
     const normSelected = normalize(selectedDept);
     
-    let deptStaff = staff.filter(s => normalize(s.department) === normSelected);
-    if (deptStaff.length === 0) {
-      deptStaff = staff.filter(s => {
-        const sDept = normalize(s.department);
-        return sDept.includes(normSelected) || normSelected.includes(sDept);
-      });
+    // Filter staff for department and district
+    let deptStaff = staff.filter(s => {
+      const matchesDept = normalize(s.department) === normSelected || normalize(s.department).includes(normSelected);
+      if (!matchesDept) return false;
+
+      if (!selectedDistrict || selectedDistrict === 'All Districts') return true;
+      return (s.district || '').toLowerCase() === selectedDistrict.toLowerCase();
+    });
+
+    if (deptStaff.length === 0 && (!selectedDistrict || selectedDistrict === 'All Districts')) {
+      deptStaff = staff;
     }
-    if (deptStaff.length === 0) {
-      deptStaff = staff; // Ultimate fallback
-    }
-    const deptReports = reports.filter(r => (r.department || 'Unassigned') === selectedDept);
+
+    const deptReports = filteredReports.filter(r => (r.department || 'Unassigned') === selectedDept);
     
     return (
       <div className="card">
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem', flexWrap: 'wrap' }}>
           <button 
             onClick={() => setSelectedDept(null)} 
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
           >
             <ArrowLeft size={24} />
           </button>
-          <h2 className="card-title" style={{ marginBottom: 0 }}>{selectedDept} - Agents & Workload</h2>
+          <div>
+            <h2 className="card-title" style={{ marginBottom: '0.2rem' }}>{selectedDept} - Workload & Agents</h2>
+            <span style={{ fontSize: '0.8rem', color: '#15803d', fontWeight: 600 }}>
+              📍 Jurisdiction: {selectedDistrict} ({deptStaff.length} Agents Available)
+            </span>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
           {/* Staff List */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0, color: 'var(--text-secondary)' }}>Available Agents</h3>
+              <h3 style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '1rem' }}>
+                {selectedDistrict !== 'All Districts' ? `${selectedDistrict} Agents` : 'All District Agents'}
+              </h3>
               <button 
                 onClick={() => setShowAddModal(true)}
                 style={{
@@ -128,47 +150,59 @@ const DepartmentsView = ({ reports, API_URL }) => {
                 <Plus size={15} /> Add Agent
               </button>
             </div>
-
-            {deptStaff.length === 0 ? (
-              <p style={{ color: 'var(--text-secondary)' }}>No Agents registered for this department.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {deptStaff.map(s => {
-                  const assignedReports = deptReports.filter(r => r.assigned_staff_id === s.id);
-                  return (
-                    <div key={s.id} style={{ padding: '1rem', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-                        <User size={16} /> {s.name}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                        <Phone size={14} /> {s.phone}
-                      </div>
-                      <div style={{ marginTop: '0.75rem', fontSize: '0.85rem' }}>
-                        <span style={{ fontWeight: 600, color: 'var(--primary-color)' }}>{assignedReports.length}</span> active cases
-                      </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {deptStaff.map(s => (
+                <div key={s.id} style={{ 
+                  padding: '0.85rem 1rem', 
+                  borderRadius: '8px', 
+                  backgroundColor: 'var(--bg-primary)', 
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.25rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+                      <User size={16} color="var(--primary-color)" />
+                      {s.name}
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                    <span style={{ fontSize: '0.72rem', backgroundColor: '#e2e8f0', color: '#334155', padding: '0.15rem 0.45rem', borderRadius: '4px', fontWeight: 600 }}>
+                      {s.district || 'Visakhapatnam'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    <Phone size={14} />
+                    {s.phone || 'No phone registered'}
+                  </div>
+                </div>
+              ))}
+              {deptStaff.length === 0 && (
+                <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', padding: '1rem', textAlign: 'center', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
+                  No agents registered in {selectedDistrict} for this department yet. Click "+ Add Agent" to onboard one.
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Department Complaints */}
+          {/* Reports Assigned to this Department */}
           <div>
-            <h3 style={{ marginBottom: '1rem', color: 'var(--text-secondary)' }}>Recent Complaints in Department</h3>
-            <div className="table-container">
-              <table>
+            <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-secondary)', fontSize: '1rem' }}>
+              Active Complaints ({deptReports.length})
+            </h3>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table">
                 <thead>
                   <tr>
                     <th>ID</th>
-                    <th>Issue</th>
+                    <th>Description</th>
                     <th>Status</th>
-                    <th>Assigned To</th>
+                    <th>Assigned Agent</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {deptReports.slice(0, 10).map(report => (
+                  {deptReports.slice(0, 15).map(report => (
                     <tr key={report.id}>
                       <td style={{ color: 'var(--text-secondary)' }}>#{report.id}</td>
                       <td style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -211,12 +245,12 @@ const DepartmentsView = ({ reports, API_URL }) => {
                                   if(e.target.value) handleAssign(report.id, e.target.value);
                                 }}
                               >
-                                <option value="" disabled>Reassign...</option>
+                                <option value="" disabled>Reassign ({selectedDistrict})...</option>
                                 {deptStaff
                                   .filter(s => s.name !== report.staff_name && s.id !== report.assigned_staff_id)
                                   .map(s => (
                                     <option key={s.id} value={s.id}>
-                                      {s.name}
+                                      {s.name} ({s.district || 'General'})
                                     </option>
                                   ))}
                               </select>
@@ -240,9 +274,9 @@ const DepartmentsView = ({ reports, API_URL }) => {
                                 if(e.target.value) handleAssign(report.id, e.target.value);
                               }}
                             >
-                              <option value="" disabled>Assign...</option>
+                              <option value="" disabled>Assign ({selectedDistrict})...</option>
                               {deptStaff.map(s => (
-                                <option key={s.id} value={s.id}>{s.name}</option>
+                                <option key={s.id} value={s.id}>{s.name} ({s.district || 'General'})</option>
                               ))}
                             </select>
                           )
@@ -251,7 +285,7 @@ const DepartmentsView = ({ reports, API_URL }) => {
                     </tr>
                   ))}
                   {deptReports.length === 0 && (
-                    <tr><td colSpan="5" style={{ textAlign: 'center' }}>No complaints</td></tr>
+                    <tr><td colSpan="5" style={{ textAlign: 'center' }}>No complaints in {selectedDept} for {selectedDistrict}</td></tr>
                   )}
                 </tbody>
               </table>
@@ -277,7 +311,7 @@ const DepartmentsView = ({ reports, API_URL }) => {
                 </button>
               </div>
               <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
-                Register a field agent for <strong>{selectedDept}</strong>. They will use their phone number to log into the Agent App.
+                Register a field agent for <strong>{selectedDept}</strong>. They will use their 10-digit mobile number to log in to the Agent App.
               </p>
               
               <form onSubmit={handleCreateAgent}>
@@ -319,6 +353,21 @@ const DepartmentsView = ({ reports, API_URL }) => {
                   />
                 </div>
 
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.35rem' }}>
+                    District (Jurisdiction)
+                  </label>
+                  <select
+                    value={newAgentDistrict}
+                    onChange={(e) => setNewAgentDistrict(e.target.value)}
+                    style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.9rem', boxSizing: 'border-box', backgroundColor: '#fff' }}
+                  >
+                    {AP_DISTRICTS.map(d => (
+                      <option key={d.id} value={d.name}>{d.name} ({d.hq})</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div style={{ marginBottom: '1.5rem' }}>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.35rem' }}>
                     Department
@@ -357,33 +406,51 @@ const DepartmentsView = ({ reports, API_URL }) => {
 
   return (
     <div className="card">
-      <h2 className="card-title">Departments</h2>
-      <div className="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Department Name</th>
-              <th>Total Complaints</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.keys(departments).map(dept => (
-              <tr key={dept}>
-                <td style={{ fontWeight: 500 }}>{dept}</td>
-                <td>{departments[dept]}</td>
-                <td>
-                  <button onClick={() => setSelectedDept(dept)} style={{ background: 'var(--primary-color)', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', width: '100%' }}>
-                    View Agents & Assign
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {Object.keys(departments).length === 0 && (
-              <tr><td colSpan="3" style={{ textAlign: 'center' }}>No departments found</td></tr>
-            )}
-          </tbody>
-        </table>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <div>
+          <h2 className="card-title" style={{ marginBottom: '0.25rem' }}>Municipal Departments</h2>
+          <span style={{ fontSize: '0.85rem', color: '#15803d', fontWeight: 600 }}>
+            📍 Active Jurisdiction: {selectedDistrict}
+          </span>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+        {Object.entries(departments).map(([dept, count]) => (
+          <div 
+            key={dept}
+            onClick={() => setSelectedDept(dept)}
+            style={{
+              padding: '1.5rem',
+              borderRadius: '8px',
+              border: '1px solid var(--border-color)',
+              backgroundColor: 'var(--bg-primary)',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            <div>
+              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: 'var(--text-primary)' }}>{dept}</h3>
+              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                {count} {count === 1 ? 'complaint' : 'complaints'} in {selectedDistrict}
+              </p>
+            </div>
+            <div style={{ marginTop: '1rem', color: 'var(--primary-color)', fontSize: '0.875rem', fontWeight: 600 }}>
+              Manage Agents & Tasks &rarr;
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

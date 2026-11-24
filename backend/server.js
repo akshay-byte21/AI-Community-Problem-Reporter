@@ -12,6 +12,7 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const compression = require('compression');
 const NodeCache = require('node-cache');
 const Jimp = require('jimp');
+const { AP_DISTRICTS, detectDistrict } = require('./apDistricts');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -588,21 +589,111 @@ app.get('/admin/users', async (req, res) => {
   }
 });
 
-// Admin: Get all staff members
-// /admin/staff: to handle client requests for /admin/staff and it processes the request to interact with database/AI and returns a response
-app.get('/admin/staff', async (req, res) => {
+// Admin Login Route (Super Admin or 26 District Admins)
+app.post('/admin/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required' });
+  }
+
   try {
-    const result = await db.query(`SELECT * FROM staff`);
+    const result = await db.query('SELECT * FROM district_admins WHERE LOWER(username) = LOWER($1)', [username.trim()]);
+    const admin = result.rows[0];
+    if (!admin) {
+      return res.status(401).json({ error: 'Invalid admin credentials' });
+    }
+
+    const isMatch = await bcrypt.compare(password, admin.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid admin credentials' });
+    }
+
+    const token = jwt.sign(
+      { adminId: admin.id, username: admin.username, role: admin.role, district: admin.district },
+      SECRET_KEY,
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      token,
+      admin: {
+        id: admin.id,
+        username: admin.username,
+        role: admin.role,
+        district: admin.district
+      }
+    });
+  } catch (err) {
+    console.error('Admin login error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Get all 26 AP Districts with active stats
+app.get('/admin/districts', async (req, res) => {
+  try {
+    const statsQuery = await db.query(`
+      SELECT 
+        district, 
+        COUNT(CASE WHEN status != 'Solved' THEN 1 END) as active_complaints,
+        COUNT(CASE WHEN status = 'Solved' THEN 1 END) as resolved_complaints,
+        COUNT(*) as total_complaints
+      FROM reports 
+      WHERE district IS NOT NULL 
+      GROUP BY district
+    `);
+
+    const staffStats = await db.query(`
+      SELECT district, COUNT(*) as agent_count 
+      FROM staff 
+      WHERE district IS NOT NULL 
+      GROUP BY district
+    `);
+
+    const statsMap = new Map();
+    statsQuery.rows.forEach(r => statsMap.set(r.district, r));
+    
+    const staffMap = new Map();
+    staffStats.rows.forEach(r => staffMap.set(r.district, parseInt(r.agent_count) || 0));
+
+    const enrichedDistricts = AP_DISTRICTS.map(d => {
+      const s = statsMap.get(d.name) || {};
+      return {
+        ...d,
+        active_complaints: parseInt(s.active_complaints) || 0,
+        resolved_complaints: parseInt(s.resolved_complaints) || 0,
+        total_complaints: parseInt(s.total_complaints) || 0,
+        agent_count: staffMap.get(d.name) || 0
+      };
+    });
+
+    res.json({ districts: enrichedDistricts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Get staff members (optionally filtered by district)
+app.get('/admin/staff', async (req, res) => {
+  const { district } = req.query;
+  try {
+    let query = `SELECT * FROM staff`;
+    const params = [];
+    if (district && district !== 'all' && district !== 'All Districts') {
+      query += ` WHERE LOWER(district) = LOWER($1)`;
+      params.push(district.trim());
+    }
+    query += ` ORDER BY name ASC`;
+    const result = await db.query(query, params);
     res.json({ staff: result.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Admin: Create a new agent in a department
-// /admin/staff: to handle client requests for /admin/staff and it processes the request to interact with database/AI and returns a response
+// Admin: Create a new agent in a department and district
 app.post('/admin/staff', async (req, res) => {
-  const { name, phone, department } = req.body;
+  const { name, phone, department, district } = req.body;
   const cleanedPhone = (phone || '').toString().replace(/\D/g, '');
   if (!name || !cleanedPhone || !department) {
     return res.status(400).json({ error: 'Name, phone, and department are required' });
@@ -612,6 +703,8 @@ app.post('/admin/staff', async (req, res) => {
     return res.status(400).json({ error: 'Phone number must be exactly 10 digits' });
   }
 
+  const assignedDistrict = (district || 'Visakhapatnam').trim();
+
   try {
     // Check if agent phone already exists
     const existing = await db.query(`SELECT id FROM staff WHERE phone = $1`, [cleanedPhone]);
@@ -620,8 +713,8 @@ app.post('/admin/staff', async (req, res) => {
     }
 
     const result = await db.query(
-      `INSERT INTO staff (name, phone, department) VALUES ($1, $2, $3) RETURNING *`,
-      [name.trim(), cleanedPhone, department.trim()]
+      `INSERT INTO staff (name, phone, department, district) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [name.trim(), cleanedPhone, department.trim(), assignedDistrict]
     );
     res.status(201).json({ message: 'Agent created successfully', staff: result.rows[0] });
   } catch (err) {
@@ -630,14 +723,13 @@ app.post('/admin/staff', async (req, res) => {
 });
 
 // Admin: Assign staff to a report
-// /admin/reports/:id/assign: to handle client requests for /admin/reports/:id/assign and it processes the request to interact with database/AI and returns a response
 app.post('/admin/reports/:id/assign', async (req, res) => {
   const { id } = req.params;
   const { staff_id } = req.body;
   if (!staff_id) return res.status(400).json({ error: 'staff_id required' });
 
   try {
-    const result = await db.query(`UPDATE reports SET assigned_staff_id = $1, status = 'In Progress', progress_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING category, address`, [staff_id, id]);
+    const result = await db.query(`UPDATE reports SET assigned_staff_id = $1, status = 'In Progress', progress_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING category, address, district`, [staff_id, id]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Report not found' });
     
     // Notify the agent
@@ -653,22 +745,32 @@ app.post('/admin/reports/:id/assign', async (req, res) => {
   }
 });
 
-// Admin: Get all reports in the system
-// /admin/reports: to handle client requests for /admin/reports and it processes the request to interact with database/AI and returns a response
+// Admin: Get reports (optionally filtered by district)
 app.get('/admin/reports', async (req, res) => {
+  const { district } = req.query;
+  const cacheKey = district && district !== 'all' && district !== 'All Districts' 
+    ? `admin_reports_${district.toLowerCase()}` 
+    : 'admin_reports_all';
+
   try {
-    const cachedData = cache.get('admin_reports');
+    const cachedData = cache.get(cacheKey);
     if (cachedData) return res.json({ reports: cachedData });
 
-    const result = await db.query(`
-      SELECT r.*, u.name as user_name, u.identifier as user_identifier, s.name as staff_name 
+    let sql = `
+      SELECT r.*, u.name as user_name, u.identifier as user_identifier, s.name as staff_name, s.district as staff_district
       FROM reports r 
       LEFT JOIN users u ON r.user_id = u.id 
       LEFT JOIN staff s ON r.assigned_staff_id = s.id
-      ORDER BY r.created_at DESC
-    `);
-    
-    cache.set('admin_reports', result.rows);
+    `;
+    const params = [];
+    if (district && district !== 'all' && district !== 'All Districts') {
+      sql += ` WHERE LOWER(r.district) = LOWER($1)`;
+      params.push(district.trim());
+    }
+    sql += ` ORDER BY r.created_at DESC`;
+
+    const result = await db.query(sql, params);
+    cache.set(cacheKey, result.rows);
     res.json({ reports: result.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1026,9 +1128,11 @@ app.post('/reports', authenticateToken, upload.single('image'), async (req, res)
       }
     }
 
+    const assignedDistrict = req.body.district || detectDistrict(address, lat ? parseFloat(lat) : null, lng ? parseFloat(lng) : null);
+
     const result = await db.query(
-      `INSERT INTO reports (user_id, category, description, department, lat, lng, address, image_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-      [req.user.userId, category, description, department, lat, lng, address, imageUrl]
+      `INSERT INTO reports (user_id, category, description, department, lat, lng, address, image_url, district) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+      [req.user.userId, category, description, department, lat, lng, address, imageUrl, assignedDistrict]
     );
     
     // Instantly reward 20 coins for submitting a new problem

@@ -43,7 +43,8 @@ const RecentComplaints = ({ reports, API_URL }) => {
   const handleAssignClick = async (report) => {
     setAssignModal({ isOpen: true, report });
     try {
-      const response = await axios.get(`${API_URL}/admin/staff`);
+      const distQuery = report.district ? `?district=${encodeURIComponent(report.district)}` : '';
+      const response = await axios.get(`${API_URL}/admin/staff${distQuery}`);
       const allStaff = response.data.staff || [];
       
       const normalize = (str) => (str || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z]/g, '');
@@ -139,7 +140,10 @@ const RecentComplaints = ({ reports, API_URL }) => {
                 <td>
                   <span className={getBadgeClass(report.category)}>{report.category}</span>
                 </td>
-                <td style={{ color: 'var(--text-secondary)' }}>{report.address || 'Unknown'}</td>
+                <td style={{ color: 'var(--text-secondary)' }}>
+                  <div style={{ fontWeight: 600, color: '#15803d', fontSize: '0.8rem' }}>{report.district || 'Andhra Pradesh'}</div>
+                  <div style={{ fontSize: '0.75rem', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{report.address || 'Unknown'}</div>
+                </td>
                 <td>
                   <span className={getPriorityClass(priority)}>{priority}</span>
                 </td>

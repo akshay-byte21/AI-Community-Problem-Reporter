@@ -45,7 +45,8 @@
         }
       ],
       "expo-image-picker",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-sqlite"
     ],
     "owner": "akshay_ganesh_gantakura"
   }

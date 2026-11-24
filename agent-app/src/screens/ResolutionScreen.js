@@ -5,6 +5,8 @@ import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import NetInfo from '@react-native-community/netinfo';
+import { queueResolution } from '../services/sqliteService';
 
 // Haversine formula to calculate distance between two lat/lng coordinates in meters
 // getDistance: to handle client requests for getDistance and it processes the request to interact with database/AI and returns a response
@@ -95,6 +97,19 @@ const ResolutionScreen = ({ route, navigation }) => {
     
     setIsUploading(true);
     try {
+      const net = await NetInfo.fetch();
+      
+      // If currently offline, queue directly into SQLite
+      if (!net.isConnected) {
+        await queueResolution(report.id, imageUri);
+        Alert.alert(
+          'Saved to Local SQLite! ⚡',
+          'You are offline. Your resolution photo and 10m GPS verification have been securely saved on your device. It will automatically upload to the municipal system once network is restored.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+        return;
+      }
+
       const formData = new FormData();
       formData.append('image', {
         uri: imageUri,
@@ -107,7 +122,8 @@ const ResolutionScreen = ({ route, navigation }) => {
         headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${userToken}`
-        }
+        },
+        timeout: 30000
       });
 
       Alert.alert('Success', 'Report marked as Pending Verification!');
@@ -117,7 +133,13 @@ const ResolutionScreen = ({ route, navigation }) => {
       if (err.response && err.response.data && err.response.data.error) {
         Alert.alert('Verification Failed', `${err.response.data.error}\n\nPlease recapture the image.`);
       } else {
-        Alert.alert('Error', 'Failed to upload resolution. Please recapture the image and try again.');
+        // Network timeout / connection dropped midway - queue locally in SQLite
+        await queueResolution(report.id, imageUri);
+        Alert.alert(
+          'Saved Offline ⚡',
+          'Network connection was unstable. Your resolution proof has been saved to your offline SQLite queue and will sync automatically when back online.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
       }
     } finally {
       setIsUploading(false);

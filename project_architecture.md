@@ -22,8 +22,9 @@ Your project is a complex, full-stack ecosystem divided into four main folders. 
 *   `src/context/AuthContext.js`: Manages the user's secure session. It saves their login token to the phone's local storage so they don't have to log in every time they open the app.
 *   `src/screens/CameraScreen.js`: Opens the phone's hardware camera, extracts exact GPS coordinates, and handles the initial AI analysis to verify the photo is a real-world civic issue.
 *   `src/screens/SubmitScreen.js`: Packages the photo and data, sends it to the Backend, and gracefully handles the `409 Already Reported` Geo-fence error if a duplicate is found.
-*   `src/screens/ReportsScreen.js`: Fetches and displays the user's personal complaint history.
+*   `src/screens/ReportsScreen.js`: Fetches and displays the user's personal complaint history with instant SQLite caching and offline queued report display.
 *   `src/screens/ProfileScreen.js`: Displays the user's accumulated Civic Points and profile details.
+*   `src/services/sqliteService.js` & `src/services/syncManager.js`: Local SQLite storage engine and background auto-sync manager allowing citizens to save complaints offline with hardware GPS and auto-upload when internet reconnects.
 
 ---
 
@@ -31,8 +32,9 @@ Your project is a complex, full-stack ecosystem divided into four main folders. 
 **Purpose:** The React Native mobile app used exclusively by Civic Workers/Agents to view tasks assigned to them and submit proof of resolution.
 
 *   `src/screens/LoginScreen.js`: Allows agents to log in securely.
-*   `src/screens/DashboardScreen.js`: Fetches and lists only the specific tasks assigned to the currently logged-in agent.
-*   `src/screens/ResolutionScreen.js`: The complex screen where an agent resolves an issue. **It contains the strict GPS logic:** it actively checks the agent's live GPS and blocks them from taking a photo unless they are physically within 10 meters of the reported coordinates.
+*   `src/screens/DashboardScreen.js`: Fetches and lists tasks with instant SQLite caching and offline fallback.
+*   `src/screens/ResolutionScreen.js`: The complex screen where an agent resolves an issue. Contains the strict 10-meter GPS geofence logic and offline resolution queueing into SQLite.
+*   `src/services/sqliteService.js` & `src/services/syncManager.js`: SQLite offline task cache and automatic resolution sync engine when field agents return to network range.
 
 ---
 

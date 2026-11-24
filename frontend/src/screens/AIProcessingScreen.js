@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Progress from 'react-native-progress';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
+import { queueOfflineReport } from '../services/sqliteService';
 
 // AIProcessingScreen: to handle client requests for AIProcessingScreen and it processes the request to interact with database/AI and returns a response
 const AIProcessingScreen = ({ navigation, route }) => {
@@ -84,20 +85,37 @@ const AIProcessingScreen = ({ navigation, route }) => {
     }
   }, [apiResult, apiError]);
 
+  const handleSaveOffline = async () => {
+    try {
+      await queueOfflineReport({ imageUri, location, address });
+      Alert.alert(
+        'Saved to Local SQLite! ⚡',
+        'Your photo and exact GPS coordinates are safely saved offline on your device. Our AI will automatically verify and submit this report to the municipality as soon as your device connects to the internet.',
+        [{ text: 'View My Reports', onPress: () => navigation.navigate('Reports') }]
+      );
+    } catch (e) {
+      Alert.alert('Error', 'Failed to save offline. Please try again.');
+    }
+  };
+
   if (apiError) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
-          <Ionicons name="wifi-outline" size={80} color="#EF4444" style={{ marginBottom: 20 }} />
-          <Text style={styles.title}>Network Error</Text>
+          <Ionicons name="cloud-offline-outline" size={80} color="#D97706" style={{ marginBottom: 20 }} />
+          <Text style={styles.title}>You are Offline</Text>
           <Text style={styles.subtitle}>
-            We couldn't reach the AI servers. Please ensure you are connected to the internet and try again.
+            Cannot connect to AI servers right now. You can save this complaint offline, and we'll auto-analyze and submit it when you're back online!
           </Text>
-          <TouchableOpacity style={[styles.retakeButton, { backgroundColor: '#1B8C4A', marginTop: 30 }]} onPress={analyzeImage}>
+          <TouchableOpacity style={[styles.retakeButton, { backgroundColor: '#1B8C4A', marginTop: 24 }]} onPress={handleSaveOffline}>
+            <Ionicons name="cloud-upload" size={20} color="#fff" />
+            <Text style={styles.retakeButtonText}>Save Offline & Auto-Sync Later</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.retakeButton, { backgroundColor: '#374151', marginTop: 12 }]} onPress={analyzeImage}>
             <Ionicons name="refresh" size={20} color="#fff" />
             <Text style={styles.retakeButtonText}>Retry AI Analysis</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.retakeButton, { marginTop: 15 }]} onPress={() => navigation.goBack()}>
+          <TouchableOpacity style={[styles.retakeButton, { marginTop: 12 }]} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={20} color="#fff" />
             <Text style={styles.retakeButtonText}>Go Back</Text>
           </TouchableOpacity>

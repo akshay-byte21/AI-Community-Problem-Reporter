@@ -24,6 +24,9 @@
         "projectId": "3e6ad47b-abfb-4d56-8a89-e7138241f693"
       }
     },
-    "owner": "akshay_ganesh_gantakura"
+    "owner": "akshay_ganesh_gantakura",
+    "plugins": [
+      "expo-sqlite"
+    ]
   }
 }

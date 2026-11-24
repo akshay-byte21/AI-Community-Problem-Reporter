@@ -1,59 +1,143 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Modal } from 'react-native';
+import React, { useEffect, useState, useContext } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { AuthContext } from '../context/AuthContext';
+import { addSyncListener, syncPendingResolutions } from '../services/syncManager';
+import { getPendingResolutions } from '../services/sqliteService';
 
-// OfflineOverlay: to handle client requests for OfflineOverlay and it processes the request to interact with database/AI and returns a response
 const OfflineOverlay = () => {
+  const { userToken, API_URL } = useContext(AuthContext) || {};
   const [isConnected, setIsConnected] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  const checkPending = async () => {
+    try {
+      const items = await getPendingResolutions();
+      setPendingCount(items.length);
+    } catch (e) {}
+  };
 
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener(state => {
-      setIsConnected(state.isConnected !== false);
+    checkPending();
+
+    const unsubNet = NetInfo.addEventListener(state => {
+      const connected = state.isConnected !== false;
+      setIsConnected(connected);
+      if (connected) {
+        checkPending();
+      }
     });
-    return () => unsubscribe();
+
+    const unsubSync = addSyncListener(state => {
+      setIsSyncing(state.isSyncing);
+      if (typeof state.pendingCount === 'number') {
+        setPendingCount(state.pendingCount);
+      }
+    });
+
+    return () => {
+      unsubNet();
+      unsubSync();
+    };
   }, []);
 
+  const handleManualSync = () => {
+    if (userToken && API_URL && isConnected) {
+      syncPendingResolutions(userToken, API_URL);
+    }
+  };
+
+  // If online and nothing is syncing and no pending items, hide banner completely
+  if (isConnected && !isSyncing && pendingCount === 0) {
+    return null;
+  }
+
   return (
-    <Modal visible={!isConnected} transparent={true} animationType="slide">
-      <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
-          <Icon name="cloud-offline" size={100} color="#E74C3C" />
-          <Text style={styles.title}>You're Offline</Text>
-          <Text style={styles.subtitle}>
-            Please connect to the internet to continue using the Agent App.
-          </Text>
-        </View>
-      </SafeAreaView>
-    </Modal>
+    <View style={[
+      styles.banner, 
+      !isConnected ? styles.offlineBanner : (isSyncing ? styles.syncingBanner : styles.pendingBanner)
+    ]}>
+      <View style={styles.left}>
+        {!isConnected ? (
+          <Ionicons name="cloud-offline" size={16} color="#fff" />
+        ) : isSyncing ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Ionicons name="cloud-upload" size={16} color="#fff" />
+        )}
+        <Text style={styles.bannerText}>
+          {!isConnected 
+            ? `Offline Mode • Viewing SQLite cache ${pendingCount > 0 ? `(${pendingCount} queued)` : ''}`
+            : isSyncing
+            ? `Syncing ${pendingCount} pending resolution(s)...`
+            : `${pendingCount} resolution(s) queued for sync`
+          }
+        </Text>
+      </View>
+
+      {isConnected && !isSyncing && pendingCount > 0 && (
+        <TouchableOpacity style={styles.syncBtn} onPress={handleManualSync}>
+          <Text style={styles.syncBtnText}>Sync Now</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  banner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 9999,
+    paddingTop: 36,
+    paddingBottom: 8,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  offlineBanner: {
+    backgroundColor: '#b91c1c', // Solid deep red
+  },
+  syncingBanner: {
+    backgroundColor: '#2563eb', // Blue
+  },
+  pendingBanner: {
+    backgroundColor: '#d97706', // Amber/orange
+  },
+  left: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     flex: 1,
-    backgroundColor: '#1E1E1E',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  content: {
-    alignItems: 'center',
-    padding: 20,
+  bannerText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+    flexShrink: 1,
   },
-  title: {
-    fontSize: 28,
+  syncBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingVertical: 3,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  syncBtnText: {
+    color: '#ffffff',
+    fontSize: 11,
     fontWeight: 'bold',
-    color: '#FFF',
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#CCC',
-    textAlign: 'center',
-    paddingHorizontal: 30,
-  },
+  }
 });
 
 export default OfflineOverlay;

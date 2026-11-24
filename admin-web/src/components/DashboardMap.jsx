@@ -112,11 +112,16 @@ const DashboardMap = ({ reports = [], selectedDistrict = 'All Districts' }) => {
         return rDist === cleanSel || rDist.includes(cleanSel) || cleanSel.includes(rDist);
       });
 
-      // Expand bounding box slightly if any complaint in this district is near the boundary
+      // Center and expand bounding box around the citizen's actual filed complaints
       if (distActive.length > 0) {
         const lats = distActive.map((r) => Number(r.lat)).filter((n) => !isNaN(n) && n > 0);
         const lngs = distActive.map((r) => Number(r.lng)).filter((n) => !isNaN(n) && n > 0);
         if (lats.length > 0 && lngs.length > 0) {
+          // Center directly on the user's filed complaints
+          const avgLat = lats.reduce((a, b) => a + b, 0) / lats.length;
+          const avgLng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
+          center = [avgLat, avgLng];
+
           minLat = Math.min(minLat, Math.min(...lats) - 0.03);
           maxLat = Math.max(maxLat, Math.max(...lats) + 0.03);
           minLng = Math.min(minLng, Math.min(...lngs) - 0.03);
@@ -202,16 +207,16 @@ const DashboardMap = ({ reports = [], selectedDistrict = 'All Districts' }) => {
               icon={getMarkerIcon(report.status)}
             >
               <Popup>
-                <div style={{ padding: '0.2rem', minWidth: '180px' }}>
+                <div style={{ padding: '0.3rem', minWidth: '220px', maxWidth: '280px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f172a' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.92rem', color: '#0f172a' }}>
                       #{report.id} {report.category}
                     </span>
                   </div>
-                  <div style={{ marginBottom: '0.35rem' }}>
+                  <div style={{ marginBottom: '0.4rem', display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                     <span style={{
                       display: 'inline-block',
-                      padding: '0.15rem 0.4rem',
+                      padding: '0.15rem 0.45rem',
                       borderRadius: '4px',
                       fontSize: '0.72rem',
                       fontWeight: 700,
@@ -220,23 +225,54 @@ const DashboardMap = ({ reports = [], selectedDistrict = 'All Districts' }) => {
                     }}>
                       ● {report.status}
                     </span>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '0.15rem 0.45rem',
+                      borderRadius: '4px',
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      backgroundColor: '#f1f5f9',
+                      color: '#475569'
+                    }}>
+                      {report.district || 'District'}
+                    </span>
                   </div>
-                  <div style={{ fontSize: '0.78rem', color: '#475569', lineHeight: 1.4 }}>
-                    <strong>District:</strong> {report.district || 'Unassigned'}<br />
-                    <strong>Department:</strong> {report.department || 'Municipal'}<br />
-                    <strong>Location:</strong> {report.address || `${Number(report.lat).toFixed(4)}, ${Number(report.lng).toFixed(4)}`}<br />
+
+                  <div style={{ fontSize: '0.78rem', color: '#334155', lineHeight: 1.45 }}>
+                    <div><strong>Exact Location:</strong> {report.address || `${Number(report.lat).toFixed(4)}, ${Number(report.lng).toFixed(4)}`}</div>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
+                      📍 GPS: {Number(report.lat).toFixed(5)}, {Number(report.lng).toFixed(5)}
+                    </div>
+                    {report.department && (
+                      <div style={{ marginTop: '2px' }}><strong>Department:</strong> {report.department}</div>
+                    )}
                     {report.staff_name && (
-                      <span style={{ color: '#0284c7', fontWeight: 600 }}>
-                        <strong>Assigned Agent:</strong> {report.staff_name}<br />
-                      </span>
+                      <div style={{ color: '#0284c7', fontWeight: 600, marginTop: '2px' }}>
+                        <strong>Assigned Agent:</strong> {report.staff_name}
+                      </div>
                     )}
                   </div>
+
                   {report.image_url && (
-                    <img 
-                      src={report.image_url} 
-                      alt="Complaint" 
-                      style={{ width: '100%', maxHeight: '120px', objectFit: 'cover', borderRadius: '4px', marginTop: '6px' }} 
-                    />
+                    <div style={{ marginTop: '8px' }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', marginBottom: '3px' }}>
+                        📷 Citizen Uploaded Photo:
+                      </div>
+                      <a href={report.image_url} target="_blank" rel="noopener noreferrer" title="Click to view full size">
+                        <img 
+                          src={report.image_url} 
+                          alt="Citizen Uploaded Photo" 
+                          style={{ 
+                            width: '100%', 
+                            maxHeight: '140px', 
+                            objectFit: 'cover', 
+                            borderRadius: '6px', 
+                            border: '1px solid #cbd5e1',
+                            display: 'block'
+                          }} 
+                        />
+                      </a>
+                    </div>
                   )}
                 </div>
               </Popup>

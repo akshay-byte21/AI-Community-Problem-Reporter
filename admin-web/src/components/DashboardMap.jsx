@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { X, Maximize2 } from 'lucide-react';
 import { AP_DISTRICTS, AP_STATE_CENTER } from '../data/apDistricts';
 
 // Fix for default marker icons in React Leaflet
@@ -70,6 +71,7 @@ function MapViewController({ center, zoom, bounds, minZoom }) {
 }
 
 const DashboardMap = ({ reports = [], selectedDistrict = 'All Districts' }) => {
+  const [modalImage, setModalImage] = useState(null);
   const isStatewide = !selectedDistrict || selectedDistrict === 'All Districts';
 
   // Determine center, zoom, minZoom, and bounding box
@@ -255,23 +257,54 @@ const DashboardMap = ({ reports = [], selectedDistrict = 'All Districts' }) => {
 
                   {report.image_url && (
                     <div style={{ marginTop: '8px' }}>
-                      <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', marginBottom: '3px' }}>
-                        📷 Citizen Uploaded Photo:
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569' }}>
+                          📷 Original Uploaded Photo
+                        </span>
+                        <span style={{ fontSize: '0.68rem', color: '#15803d', fontWeight: 600 }}>
+                          (Click to expand)
+                        </span>
                       </div>
-                      <a href={report.image_url} target="_blank" rel="noopener noreferrer" title="Click to view full size">
+                      <div 
+                        onClick={() => setModalImage(report)}
+                        style={{
+                          cursor: 'pointer',
+                          position: 'relative',
+                          borderRadius: '6px',
+                          overflow: 'hidden',
+                          border: '2px solid #cbd5e1',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.08)'
+                        }}
+                        title="Click to view original full size"
+                      >
                         <img 
                           src={report.image_url} 
                           alt="Citizen Uploaded Photo" 
                           style={{ 
                             width: '100%', 
-                            maxHeight: '140px', 
+                            maxHeight: '135px', 
                             objectFit: 'cover', 
-                            borderRadius: '6px', 
-                            border: '1px solid #cbd5e1',
                             display: 'block'
                           }} 
                         />
-                      </a>
+                        <div style={{
+                          position: 'absolute',
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                          color: '#ffffff',
+                          padding: '0.25rem 0.5rem',
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.3rem'
+                        }}>
+                          <Maximize2 size={12} /> View original full size
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -280,6 +313,131 @@ const DashboardMap = ({ reports = [], selectedDistrict = 'All Districts' }) => {
           ) : null
         ))}
       </MapContainer>
+
+      {/* Full-Screen Original Image Modal */}
+      {modalImage && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+            zIndex: 99999,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: '1.5rem',
+            backdropFilter: 'blur(5px)'
+          }}
+          onClick={() => setModalImage(null)}
+        >
+          <div 
+            style={{
+              position: 'relative',
+              maxWidth: '92vw',
+              maxHeight: '92vh',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Top Bar */}
+            <div style={{
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              color: '#ffffff',
+              marginBottom: '0.75rem',
+              padding: '0 0.5rem'
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>
+                  #{modalImage.id} {modalImage.category} - Original Citizen Upload
+                </h3>
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.82rem', color: '#cbd5e1' }}>
+                  📍 Exact Location: {modalImage.address || `${Number(modalImage.lat).toFixed(5)}, ${Number(modalImage.lng).toFixed(5)}`}
+                </p>
+              </div>
+              <button
+                onClick={() => setModalImage(null)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  border: 'none',
+                  color: '#ffffff',
+                  borderRadius: '50%',
+                  width: '38px',
+                  height: '38px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background 0.2s'
+                }}
+                title="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Images Display */}
+            <div style={{
+              display: 'flex',
+              gap: '1.5rem',
+              justifyContent: 'center',
+              alignItems: 'center',
+              maxHeight: '78vh',
+              flexWrap: 'wrap'
+            }}>
+              {/* Citizen Original Photo */}
+              {modalImage.image_url && (
+                <div style={{ textAlign: 'center', maxHeight: '78vh' }}>
+                  <div style={{ color: '#f87171', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>
+                    ● Reported Problem (Citizen Camera Upload)
+                  </div>
+                  <img 
+                    src={modalImage.image_url} 
+                    alt="Citizen Original Photo"
+                    style={{
+                      maxWidth: modalImage.resolution_image_url ? '45vw' : '88vw',
+                      maxHeight: '72vh',
+                      objectFit: 'contain',
+                      borderRadius: '8px',
+                      border: '2px solid #ef4444',
+                      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6)'
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Field Agent Resolved Photo (if solved) */}
+              {modalImage.resolution_image_url && (
+                <div style={{ textAlign: 'center', maxHeight: '78vh' }}>
+                  <div style={{ color: '#4ade80', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px' }}>
+                    ● Resolution Proof (Agent Fixed)
+                  </div>
+                  <img 
+                    src={modalImage.resolution_image_url} 
+                    alt="Agent Resolution Photo"
+                    style={{
+                      maxWidth: '45vw',
+                      maxHeight: '72vh',
+                      objectFit: 'contain',
+                      borderRadius: '8px',
+                      border: '2px solid #10b981',
+                      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6)'
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

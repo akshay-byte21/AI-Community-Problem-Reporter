@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import React, { useState, useEffect, useMemo } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polygon, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { X, Maximize2 } from 'lucide-react';
+import { X, Maximize2, MapPin, Shield } from 'lucide-react';
 import { AP_DISTRICTS, AP_STATE_CENTER } from '../data/apDistricts';
+import DISTRICT_BOUNDARIES from '../data/ap_districts_boundaries.json';
 
 // Fix for default marker icons in React Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -16,7 +17,7 @@ L.Icon.Default.mergeOptions({
 // Custom distinct markers for Pending vs In-Progress complaints
 const getMarkerIcon = (status) => {
   const isPending = status === 'Pending';
-  const bgColor = isPending ? '#ef4444' : '#f59e0b'; // Red for Pending, Amber for In Progress
+  const bgColor = isPending ? '#ef4444' : '#f59e0b';
   const iconSymbol = isPending ? '!' : '⚙';
 
   return L.divIcon({
@@ -27,45 +28,95 @@ const getMarkerIcon = (status) => {
         color: #ffffff;
         border: 2px solid #ffffff;
         border-radius: 50%;
-        width: 28px;
-        height: 28px;
+        width: 30px;
+        height: 30px;
         display: flex;
         align-items: center;
         justify-content: center;
         font-weight: 800;
         font-size: 13px;
-        box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.38);
         cursor: pointer;
         transition: transform 0.15s ease;
       ">
         ${iconSymbol}
       </div>
     `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -14],
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -15],
   });
 };
 
-// Component to dynamically enforce bounds, minZoom, and pan when district changes
-function MapViewController({ center, zoom, bounds, minZoom }) {
+// Outer world polygon ring for inverted mask (covers surrounding regions)
+const OUTER_WORLD_RING = [
+  [38.0, 65.0],
+  [38.0, 95.0],
+  [6.0, 95.0],
+  [6.0, 65.0],
+  [38.0, 65.0]
+];
+
+// Helper to extract rings in [lat, lng] format from GeoJSON geometry
+function extractLatLngRings(geometry) {
+  if (!geometry) return [];
+  const rings = [];
+  if (geometry.type === 'Polygon') {
+    geometry.coordinates.forEach(ring => {
+      rings.push(ring.map(pt => [pt[1], pt[0]]));
+    });
+  } else if (geometry.type === 'MultiPolygon') {
+    geometry.coordinates.forEach(poly => {
+      poly.forEach(ring => {
+        rings.push(ring.map(pt => [pt[1], pt[0]]));
+      });
+    });
+  }
+  return rings;
+}
+
+// Helper to lookup official boundary for any of the 26 districts
+function findDistrictBoundary(selectedDistrict) {
+  if (!selectedDistrict || selectedDistrict === 'All Districts') return null;
+  const clean = selectedDistrict.trim().toLowerCase();
+
+  // 1. Direct match on boundary keys
+  for (const [name, data] of Object.entries(DISTRICT_BOUNDARIES)) {
+    if (
+      name.toLowerCase() === clean ||
+      name.toLowerCase().includes(clean) ||
+      clean.includes(name.toLowerCase())
+    ) {
+      return data;
+    }
+  }
+
+  // 2. Fallback check via AP_DISTRICTS
+  const meta = AP_DISTRICTS.find(
+    d => d.name.toLowerCase() === clean || d.code.toLowerCase() === clean || d.hq.toLowerCase() === clean
+  );
+  if (meta && DISTRICT_BOUNDARIES[meta.name]) {
+    return DISTRICT_BOUNDARIES[meta.name];
+  }
+
+  return null;
+}
+
+// Controller component to smoothly pan, set maxBounds, and enforce minZoom on district change
+function MapViewController({ bounds, minZoom, center, zoom }) {
   const map = useMap();
   useEffect(() => {
     if (!map) return;
-
-    // Enforce strict minimum zoom to forbid zooming out to state or whole world
-    map.setMinZoom(minZoom || 11);
+    map.setMinZoom(minZoom || 10);
     map.setMaxZoom(18);
 
-    // Enforce strict bounding box
     if (bounds) {
       map.setMaxBounds(bounds);
+      map.fitBounds(bounds, { padding: [15, 15], maxZoom: 14 });
+    } else if (center && zoom) {
+      map.setView(center, zoom);
     }
-
-    if (center && zoom) {
-      map.setView(center, zoom, { animate: true });
-    }
-  }, [center, zoom, bounds, minZoom, map]);
+  }, [bounds, minZoom, center, zoom, map]);
 
   return null;
 }
@@ -74,77 +125,55 @@ const DashboardMap = ({ reports = [], selectedDistrict = 'All Districts' }) => {
   const [modalImage, setModalImage] = useState(null);
   const isStatewide = !selectedDistrict || selectedDistrict === 'All Districts';
 
-  // Determine center, zoom, minZoom, and bounding box
+  // Retrieve official GeoJSON polygon boundary for the selected district
+  const districtBoundary = useMemo(
+    () => findDistrictBoundary(selectedDistrict),
+    [selectedDistrict]
+  );
+
+  // Extract Leaflet-compatible rings
+  const districtRings = useMemo(
+    () => (districtBoundary ? extractLatLngRings(districtBoundary.geometry) : []),
+    [districtBoundary]
+  );
+
+  // Inverted mask: World rectangle with the district polygon cut out as a hole
+  const invertedMaskPositions = useMemo(() => {
+    if (!districtRings.length) return null;
+    return [OUTER_WORLD_RING, ...districtRings];
+  }, [districtRings]);
+
+  // Determine center, zoom, minZoom, and bounds
   let center = [AP_STATE_CENTER.lat, AP_STATE_CENTER.lng];
   let zoom = AP_STATE_CENTER.zoom;
-  let minZoom = 7; // Statewide minZoom (Andhra Pradesh overview only)
+  let minZoom = 7;
   let maxBounds = [
     [12.5, 76.5],
     [19.5, 85.0]
-  ]; // Strict AP state borders (forbids dragging outside AP)
+  ]; // Strict AP borders
 
-  if (!isStatewide) {
-    const cleanSel = (selectedDistrict || '').trim().toLowerCase();
-    const dist = AP_DISTRICTS.find(
-      (d) =>
-        d.name.toLowerCase() === cleanSel ||
-        d.code.toLowerCase() === cleanSel ||
-        d.hq.toLowerCase() === cleanSel ||
-        d.name.toLowerCase().includes(cleanSel) ||
-        cleanSel.includes(d.name.toLowerCase())
-    );
-
-    if (dist) {
-      center = [dist.lat, dist.lng];
-      zoom = dist.zoom || 12;
-      // STRICT: User cannot zoom out past level 11 (keeps map strictly within district limits for ALL 26 districts)
-      minZoom = 11;
-
-      // Base district bounding box (~25-35 km radius around district headquarters)
-      let minLat = dist.lat - 0.22;
-      let maxLat = dist.lat + 0.22;
-      let minLng = dist.lng - 0.25;
-      let maxLng = dist.lng + 0.25;
-
-      // Filter active reports in this district
-      const distActive = reports.filter((r) => {
-        const isActive = r.status !== 'Solved' && r.status !== 'Completed';
-        if (!isActive) return false;
-        const rDist = (r.district || '').trim().toLowerCase();
-        return rDist === cleanSel || rDist.includes(cleanSel) || cleanSel.includes(rDist);
-      });
-
-      // Center and expand bounding box around the citizen's actual filed complaints
-      if (distActive.length > 0) {
-        const lats = distActive.map((r) => Number(r.lat)).filter((n) => !isNaN(n) && n > 0);
-        const lngs = distActive.map((r) => Number(r.lng)).filter((n) => !isNaN(n) && n > 0);
-        if (lats.length > 0 && lngs.length > 0) {
-          // Center directly on the user's filed complaints
-          const avgLat = lats.reduce((a, b) => a + b, 0) / lats.length;
-          const avgLng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
-          center = [avgLat, avgLng];
-
-          minLat = Math.min(minLat, Math.min(...lats) - 0.03);
-          maxLat = Math.max(maxLat, Math.max(...lats) + 0.03);
-          minLng = Math.min(minLng, Math.min(...lngs) - 0.03);
-          maxLng = Math.max(maxLng, Math.max(...lngs) + 0.03);
-        }
-      }
-
-      maxBounds = [
-        [Number(minLat.toFixed(4)), Number(minLng.toFixed(4))],
-        [Number(maxLat.toFixed(4)), Number(maxLng.toFixed(4))]
-      ];
-    }
+  if (!isStatewide && districtBoundary) {
+    const rawBbox = districtBoundary.bbox;
+    // Add small buffer to bounding box
+    maxBounds = [
+      [rawBbox[0][0] - 0.05, rawBbox[0][1] - 0.05],
+      [rawBbox[1][0] + 0.05, rawBbox[1][1] + 0.05]
+    ];
+    center = [
+      (rawBbox[0][0] + rawBbox[1][0]) / 2,
+      (rawBbox[0][1] + rawBbox[1][1]) / 2
+    ];
+    zoom = 11;
+    minZoom = 10; // Strictly prevent zooming out past this district
   }
 
   // Filter for ACTIVE problems in this particular district only
+  const cleanSel = (selectedDistrict || '').trim().toLowerCase();
   const activeReports = reports.filter((r) => {
     const isActive = r.status !== 'Solved' && r.status !== 'Completed';
     if (!isActive) return false;
 
     if (isStatewide) return true;
-    const cleanSel = selectedDistrict.trim().toLowerCase();
     const rDist = (r.district || '').trim().toLowerCase();
     return rDist === cleanSel || rDist.includes(cleanSel) || cleanSel.includes(rDist);
   });
@@ -158,16 +187,16 @@ const DashboardMap = ({ reports = [], selectedDistrict = 'All Districts' }) => {
         right: 10,
         zIndex: 1000,
         backgroundColor: 'rgba(255, 255, 255, 0.96)',
-        padding: '0.4rem 0.8rem',
+        padding: '0.45rem 0.85rem',
         borderRadius: '8px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
-        fontSize: '0.78rem',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
+        fontSize: '0.8rem',
         fontWeight: 600,
         color: '#0f172a',
         display: 'flex',
         alignItems: 'center',
-        gap: '0.45rem',
-        border: '1px solid #e2e8f0'
+        gap: '0.5rem',
+        border: '1px solid #cbd5e1'
       }}>
         <span style={{ color: activeReports.length > 0 ? '#ea580c' : '#16a34a' }}>●</span>
         <span>{selectedDistrict}</span>
@@ -175,13 +204,16 @@ const DashboardMap = ({ reports = [], selectedDistrict = 'All Districts' }) => {
         <span style={{ color: '#ea580c' }}>{activeReports.length} Active Problems</span>
         <span style={{
           backgroundColor: '#f1f5f9',
-          color: '#475569',
-          padding: '0.12rem 0.4rem',
+          color: '#15803d',
+          padding: '0.15rem 0.45rem',
           borderRadius: '4px',
-          fontSize: '0.7rem',
-          fontWeight: 700
+          fontSize: '0.72rem',
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.25rem'
         }}>
-          🔒 District Locked
+          <Shield size={12} color="#15803d" /> Official Border Locked
         </span>
       </div>
 
@@ -196,11 +228,40 @@ const DashboardMap = ({ reports = [], selectedDistrict = 'All Districts' }) => {
         style={{ height: '100%', width: '100%', borderRadius: '10px' }}
       >
         <MapViewController center={center} zoom={zoom} bounds={maxBounds} minZoom={minZoom} />
+        
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           noWrap={true}
         />
+
+        {/* 1. Inverted Mask: Dims and hides everything OUTSIDE the district boundary */}
+        {invertedMaskPositions && (
+          <Polygon 
+            positions={invertedMaskPositions}
+            pathOptions={{
+              stroke: false,
+              fillColor: '#f1f5f9',
+              fillOpacity: 0.82
+            }}
+          />
+        )}
+
+        {/* 2. Official District Border Outline (Highlights the exact researched perimeter) */}
+        {districtRings.length > 0 && (
+          <Polygon 
+            positions={districtRings}
+            pathOptions={{
+              color: '#15803d',
+              weight: 3.5,
+              opacity: 1,
+              fillColor: '#16a34a',
+              fillOpacity: 0.05
+            }}
+          />
+        )}
+
+        {/* 3. Markers for registered citizen complaints inside this district */}
         {activeReports.map((report) => (
           report.lat && report.lng ? (
             <Marker 

@@ -174,8 +174,107 @@ async function initDB() {
       }
     }
 
-    // Default any reports with NULL district to Visakhapatnam or Vizianagaram
+    // Default any reports with NULL district to Visakhapatnam
     await client.query("UPDATE reports SET district = 'Visakhapatnam' WHERE district IS NULL OR district = ''");
+
+    // Ensure a citizen user exists for linking seeded complaints
+    let defaultUserId = 1;
+    const userCheck = await client.query("SELECT id FROM users LIMIT 1");
+    if (userCheck.rows.length === 0) {
+      const dummyPwd = await bcrypt.hash('citizen123', 10);
+      const newUser = await client.query(
+        "INSERT INTO users (identifier, password, name, points) VALUES ($1, $2, $3, $4) RETURNING id",
+        ['citizen@ap.gov.in', dummyPwd, 'Citizen User', 100]
+      );
+      defaultUserId = newUser.rows[0].id;
+    } else {
+      defaultUserId = userCheck.rows[0].id;
+    }
+
+    // Seed realistic active complaints for ALL 26 districts that have 0 reports
+    console.log('Checking active complaints distribution across all 26 AP districts...');
+    for (const d of AP_DISTRICTS) {
+      const rCheck = await client.query(
+        "SELECT COUNT(*) FROM reports WHERE LOWER(TRIM(district)) = LOWER(TRIM($1))", 
+        [d.name]
+      );
+
+      if (parseInt(rCheck.rows[0].count) === 0) {
+        console.log(`Seeding active complaints for district: ${d.name} (${d.hq})`);
+
+        // Fetch staff in this district to assign to in-progress issues
+        const staffRes = await client.query(
+          "SELECT id, department FROM staff WHERE LOWER(TRIM(district)) = LOWER(TRIM($1))", 
+          [d.name]
+        );
+        const staffList = staffRes.rows;
+
+        const sampleIssues = [
+          {
+            category: 'Road Damage',
+            description: `Major road breakdown with dangerous potholes causing severe traffic disruption and 2-wheeler accidents near ${d.hq} main junction.`,
+            department: 'Municipal Corporation (Road Maintenance)',
+            lat: Number((d.lat + 0.0065).toFixed(4)),
+            lng: Number((d.lng + 0.0052).toFixed(4)),
+            address: `Main Trunk Road, Near Bus Stand, ${d.hq}, ${d.name}`,
+            status: 'In Progress',
+            image_url: 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=600&auto=format&fit=crop'
+          },
+          {
+            category: 'Garbage',
+            description: `Overflowing commercial municipal waste dump spilling onto public footpath, emitting foul odor near ${d.hq} daily market.`,
+            department: 'Municipal Corporation (Solid Waste Management)',
+            lat: Number((d.lat - 0.0078).toFixed(4)),
+            lng: Number((d.lng + 0.0068).toFixed(4)),
+            address: `Daily Market Center, Ward 7, ${d.hq}, ${d.name}`,
+            status: 'Pending',
+            image_url: 'https://images.unsplash.com/photo-1605600659873-d808a13e4d2a?w=600&auto=format&fit=crop'
+          },
+          {
+            category: 'Street Light',
+            description: `A row of 4 streetlights have been completely dark for over 3 days, causing security concerns for pedestrians at night.`,
+            department: 'Electricity Board / Power Distribution Department',
+            lat: Number((d.lat + 0.0038).toFixed(4)),
+            lng: Number((d.lng - 0.0074).toFixed(4)),
+            address: `Govt Hospital Road, ${d.hq}, ${d.name}`,
+            status: 'Pending',
+            image_url: 'https://images.unsplash.com/photo-1509114397022-ed747cca3f65?w=600&auto=format&fit=crop'
+          },
+          {
+            category: 'Water Supply',
+            description: `Underground municipal distribution pipe burst leading to clean drinking water flooding the road and low pressure in residential lines.`,
+            department: 'Municipal Corporation (Water Supply Department)',
+            lat: Number((d.lat - 0.0049).toFixed(4)),
+            lng: Number((d.lng - 0.0058).toFixed(4)),
+            address: `Revenue Colony, 3rd Cross, ${d.hq}, ${d.name}`,
+            status: 'In Progress',
+            image_url: 'https://images.unsplash.com/photo-1584467735815-f778f274e296?w=600&auto=format&fit=crop'
+          }
+        ];
+
+        for (const issue of sampleIssues) {
+          const matchedStaff = staffList.find(s => s.department === issue.department) || (staffList.length > 0 ? staffList[0] : null);
+          const staffId = (issue.status === 'In Progress' && matchedStaff) ? matchedStaff.id : null;
+
+          await client.query(
+            `INSERT INTO reports (
+              user_id, category, description, department, lat, lng, address, 
+              status, image_url, district, assigned_staff_id, created_at, progress_at
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 
+              CURRENT_TIMESTAMP - INTERVAL '1 day' * (1 + FLOOR(RANDOM() * 3)),
+              CASE WHEN $8 = 'In Progress' THEN CURRENT_TIMESTAMP - INTERVAL '6 hours' ELSE NULL END
+            )`,
+            [
+              defaultUserId, issue.category, issue.description, issue.department,
+              issue.lat, issue.lng, issue.address, issue.status, issue.image_url,
+              d.name, staffId
+            ]
+          );
+        }
+      }
+    }
+    console.log('All 26 districts verified with active complaints and assigned staff.');
 
     client.release();
   } catch (err) {

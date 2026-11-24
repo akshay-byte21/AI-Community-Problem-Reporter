@@ -175,7 +175,7 @@ function App() {
   // Filter reports strictly for the active district
   const filteredReports = reports.filter(r => {
     if (!selectedDistrict || selectedDistrict === 'All Districts') return true;
-    return (r.district || '').toLowerCase() === selectedDistrict.toLowerCase();
+    return (r.district || '').trim().toLowerCase() === selectedDistrict.trim().toLowerCase();
   });
 
   // Calculate MoM trend

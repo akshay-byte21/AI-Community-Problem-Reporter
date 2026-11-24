@@ -116,7 +116,7 @@ const RecentComplaints = ({ reports, API_URL }) => {
                   <div className="complaint-cell">
                     {report.image_url ? (
                       <img 
-                        src={`${API_URL}${report.image_url}`} 
+                        src={report.image_url.startsWith('http') ? report.image_url : `${API_URL}${report.image_url}`} 
                         alt="issue" 
                         className="complaint-img" 
                         onClick={() => setSelectedImage(report)}
@@ -127,7 +127,7 @@ const RecentComplaints = ({ reports, API_URL }) => {
                     )}
                     {report.resolution_image_url && (
                       <img 
-                        src={`${API_URL}${report.resolution_image_url}`} 
+                        src={report.resolution_image_url.startsWith('http') ? report.resolution_image_url : `${API_URL}${report.resolution_image_url}`} 
                         alt="resolved" 
                         className="complaint-img" 
                         onClick={() => setSelectedImage(report)}

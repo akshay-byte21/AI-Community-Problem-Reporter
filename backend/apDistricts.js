@@ -30,11 +30,102 @@ const AP_DISTRICTS = [
   { id: 26, name: 'YSR Kadapa', code: 'ysr_kadapa', hq: 'Kadapa', lat: 14.4673, lng: 78.8242, zoom: 11 }
 ];
 
-// Helper: Match district from address text or coordinates
-function detectDistrict(address = '', lat = null, lng = null) {
-  const cleanAddr = address.toLowerCase();
+let DISTRICT_BOUNDARIES = null;
+try {
+  DISTRICT_BOUNDARIES = require('./data/ap_districts_boundaries.json');
+} catch (e) {
+  try {
+    DISTRICT_BOUNDARIES = require('../admin-web/src/data/ap_districts_boundaries.json');
+  } catch (err) {
+    DISTRICT_BOUNDARIES = null;
+  }
+}
 
-  // 1. Text keyword search
+// Ray-casting algorithm for Point-in-Polygon check
+function isPointInRing(pt, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
+    const intersect = ((yi > pt[1]) !== (yj > pt[1])) &&
+      (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+// Check which official AP district polygon contains the given GPS coordinates
+function findDistrictByCoordinates(lat, lng) {
+  if (!DISTRICT_BOUNDARIES || !lat || !lng) return null;
+  const pt = [lng, lat]; // GeoJSON uses [lng, lat]
+
+  for (const [name, info] of Object.entries(DISTRICT_BOUNDARIES)) {
+    const geom = info.geometry;
+    if (!geom) continue;
+
+    // Fast bounding box filtering
+    if (info.bbox) {
+      const [minLat, minLng] = info.bbox[0];
+      const [maxLat, maxLng] = info.bbox[1];
+      if (lat < minLat || lat > maxLat || lng < minLng || lng > maxLng) {
+        continue;
+      }
+    }
+
+    if (geom.type === 'Polygon') {
+      for (const ring of geom.coordinates) {
+        if (isPointInRing(pt, ring)) return name;
+      }
+    } else if (geom.type === 'MultiPolygon') {
+      for (const poly of geom.coordinates) {
+        for (const ring of poly) {
+          if (isPointInRing(pt, ring)) return name;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+// Helper: Match district from GPS coordinates or address text
+function detectDistrict(address = '', lat = null, lng = null) {
+  // 1. Primary: Exact Point-in-Polygon against official AP boundaries
+  if (lat && lng) {
+    const polygonDistrict = findDistrictByCoordinates(parseFloat(lat), parseFloat(lng));
+    if (polygonDistrict) {
+      return polygonDistrict;
+    }
+  }
+
+  const cleanAddr = (address || '').toLowerCase();
+
+  // 2. Specific Mandal / Landmark Aliases
+  if (cleanAddr.includes('kothavalasa') || cleanAddr.includes('chintalavalasa') || cleanAddr.includes('denkada') || cleanAddr.includes('mvgr') || cleanAddr.includes('bobbili') || cleanAddr.includes('salur')) {
+    return 'Vizianagaram';
+  }
+  if (cleanAddr.includes('vizag') || cleanAddr.includes('waltair') || cleanAddr.includes('gajuwaka') || cleanAddr.includes('pendurthi') || cleanAddr.includes('bheemili') || cleanAddr.includes('bheemunipatnam')) {
+    return 'Visakhapatnam';
+  }
+  if (cleanAddr.includes('vijayawada') || cleanAddr.includes('ibrahimpatnam') || cleanAddr.includes('mylavaram')) {
+    return 'NTR';
+  }
+  if (cleanAddr.includes('guntur') || cleanAddr.includes('amaravati') || cleanAddr.includes('mangalagiri') || cleanAddr.includes('tenali')) {
+    return 'Guntur';
+  }
+  if (cleanAddr.includes('rajahmundry') || cleanAddr.includes('kadiam')) {
+    return 'East Godavari';
+  }
+  if (cleanAddr.includes('nellore') || cleanAddr.includes('kavali') || cleanAddr.includes('gudur')) {
+    return 'Sri Potti Sriramulu Nellore';
+  }
+  if (cleanAddr.includes('kadapa') || cleanAddr.includes('proddatur')) {
+    return 'YSR Kadapa';
+  }
+  if (cleanAddr.includes('anantapur') || cleanAddr.includes('dharmavaram') || cleanAddr.includes('tadipatri')) {
+    return 'Ananthapuramu';
+  }
+
+  // 3. District name or HQ name text search
   for (const d of AP_DISTRICTS) {
     const dLower = d.name.toLowerCase();
     const hqLower = d.hq.toLowerCase();
@@ -43,15 +134,7 @@ function detectDistrict(address = '', lat = null, lng = null) {
     }
   }
 
-  // Common aliases
-  if (cleanAddr.includes('vizag') || cleanAddr.includes('waltair')) return 'Visakhapatnam';
-  if (cleanAddr.includes('vijayawada')) return 'NTR';
-  if (cleanAddr.includes('rajahmundry')) return 'East Godavari';
-  if (cleanAddr.includes('nellore')) return 'Sri Potti Sriramulu Nellore';
-  if (cleanAddr.includes('kadapa')) return 'YSR Kadapa';
-  if (cleanAddr.includes('anantapur')) return 'Ananthapuramu';
-
-  // 2. Proximity to centroid (if lat & lng provided)
+  // 4. Fallback: Proximity to centroid (if lat & lng provided)
   if (lat && lng) {
     let closestDist = Infinity;
     let closestDistrict = 'Visakhapatnam';
@@ -71,5 +154,6 @@ function detectDistrict(address = '', lat = null, lng = null) {
 
 module.exports = {
   AP_DISTRICTS,
-  detectDistrict
+  detectDistrict,
+  findDistrictByCoordinates
 };

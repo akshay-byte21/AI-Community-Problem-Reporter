@@ -680,8 +680,9 @@ app.get('/admin/staff', async (req, res) => {
     let query = `SELECT * FROM staff`;
     const params = [];
     if (district && district !== 'all' && district !== 'All Districts') {
-      query += ` WHERE LOWER(TRIM(district)) = LOWER(TRIM($1))`;
+      query += ` WHERE (LOWER(TRIM(district)) = LOWER(TRIM($1)) OR LOWER(district) LIKE LOWER($2))`;
       params.push(district.trim());
+      params.push(`%${district.trim()}%`);
     }
     query += ` ORDER BY name ASC`;
     const result = await db.query(query, params);
@@ -764,8 +765,9 @@ app.get('/admin/reports', async (req, res) => {
     `;
     const params = [];
     if (district && district !== 'all' && district !== 'All Districts') {
-      sql += ` WHERE LOWER(TRIM(r.district)) = LOWER(TRIM($1))`;
+      sql += ` WHERE (LOWER(TRIM(r.district)) = LOWER(TRIM($1)) OR LOWER(r.district) LIKE LOWER($2))`;
       params.push(district.trim());
+      params.push(`%${district.trim()}%`);
     }
     sql += ` ORDER BY r.created_at DESC`;
 

@@ -82,14 +82,20 @@ const DashboardMap = ({ reports = [], selectedDistrict = 'All Districts' }) => {
   ]; // Strict AP state borders (forbids dragging outside AP)
 
   if (!isStatewide) {
+    const cleanSel = (selectedDistrict || '').trim().toLowerCase();
     const dist = AP_DISTRICTS.find(
-      (d) => d.name.trim().toLowerCase() === selectedDistrict.trim().toLowerCase()
+      (d) =>
+        d.name.toLowerCase() === cleanSel ||
+        d.code.toLowerCase() === cleanSel ||
+        d.hq.toLowerCase() === cleanSel ||
+        d.name.toLowerCase().includes(cleanSel) ||
+        cleanSel.includes(d.name.toLowerCase())
     );
 
     if (dist) {
       center = [dist.lat, dist.lng];
       zoom = dist.zoom || 12;
-      // STRICT: User cannot zoom out past level 11 (keeps map strictly within district limits)
+      // STRICT: User cannot zoom out past level 11 (keeps map strictly within district limits for ALL 26 districts)
       minZoom = 11;
 
       // Base district bounding box (~25-35 km radius around district headquarters)
@@ -102,7 +108,8 @@ const DashboardMap = ({ reports = [], selectedDistrict = 'All Districts' }) => {
       const distActive = reports.filter((r) => {
         const isActive = r.status !== 'Solved' && r.status !== 'Completed';
         if (!isActive) return false;
-        return (r.district || '').trim().toLowerCase() === selectedDistrict.trim().toLowerCase();
+        const rDist = (r.district || '').trim().toLowerCase();
+        return rDist === cleanSel || rDist.includes(cleanSel) || cleanSel.includes(rDist);
       });
 
       // Expand bounding box slightly if any complaint in this district is near the boundary
@@ -130,7 +137,9 @@ const DashboardMap = ({ reports = [], selectedDistrict = 'All Districts' }) => {
     if (!isActive) return false;
 
     if (isStatewide) return true;
-    return (r.district || '').trim().toLowerCase() === selectedDistrict.trim().toLowerCase();
+    const cleanSel = selectedDistrict.trim().toLowerCase();
+    const rDist = (r.district || '').trim().toLowerCase();
+    return rDist === cleanSel || rDist.includes(cleanSel) || cleanSel.includes(rDist);
   });
 
   return (

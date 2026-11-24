@@ -172,10 +172,12 @@ function App() {
     return <AdminLogin onLogin={handleLogin} API_URL={API_URL} />;
   }
 
-  // Filter reports strictly for the active district
+  // Filter reports strictly for the active district (all 26 AP districts)
   const filteredReports = reports.filter(r => {
     if (!selectedDistrict || selectedDistrict === 'All Districts') return true;
-    return (r.district || '').trim().toLowerCase() === selectedDistrict.trim().toLowerCase();
+    const cleanSel = selectedDistrict.trim().toLowerCase();
+    const rDist = (r.district || '').trim().toLowerCase();
+    return rDist === cleanSel || rDist.includes(cleanSel) || cleanSel.includes(rDist);
   });
 
   // Calculate MoM trend

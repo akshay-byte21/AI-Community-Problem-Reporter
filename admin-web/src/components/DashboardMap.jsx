@@ -102,21 +102,51 @@ function findDistrictBoundary(selectedDistrict) {
   return null;
 }
 
-// Controller component to smoothly pan, set maxBounds, and enforce minZoom on district change
-function MapViewController({ bounds, minZoom, center, zoom }) {
+// Controller component to smoothly fit the entire district into view and restrict zooming/panning
+function MapViewController({ districtBoundary, isStatewide }) {
   const map = useMap();
+
   useEffect(() => {
     if (!map) return;
-    map.setMinZoom(minZoom || 10);
-    map.setMaxZoom(18);
 
-    if (bounds) {
-      map.setMaxBounds(bounds);
-      map.fitBounds(bounds, { padding: [15, 15], maxZoom: 14 });
-    } else if (center && zoom) {
-      map.setView(center, zoom);
-    }
-  }, [bounds, minZoom, center, zoom, map]);
+    // Small timeout to allow container DOM layout to settle
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+
+      if (!isStatewide && districtBoundary && districtBoundary.bbox) {
+        const targetBounds = L.latLngBounds(districtBoundary.bbox);
+
+        // 1. Clear constraints so fitBounds can calculate freely
+        map.setMinZoom(4);
+        map.setMaxZoom(18);
+        map.setMaxBounds(null);
+
+        // 2. Fit the entire district inside the container
+        map.fitBounds(targetBounds, { padding: [25, 25], maxZoom: 13, animate: false });
+
+        // 3. Lock minZoom to the fitted zoom so user cannot zoom out past this district
+        const fittedZoom = map.getZoom();
+        map.setMinZoom(fittedZoom);
+
+        // 4. Lock maxBounds to prevent panning outside the district
+        map.setMaxBounds(targetBounds.pad(0.20));
+      } else {
+        // Statewide view (All Districts)
+        map.setMinZoom(4);
+        map.setMaxZoom(18);
+        map.setMaxBounds(null);
+
+        const stateBounds = L.latLngBounds([[12.5, 76.5], [19.5, 85.0]]);
+        map.fitBounds(stateBounds, { padding: [15, 15], animate: false });
+
+        const fittedZoom = map.getZoom();
+        map.setMinZoom(fittedZoom);
+        map.setMaxBounds(stateBounds.pad(0.15));
+      }
+    }, 60);
+
+    return () => clearTimeout(timer);
+  }, [map, districtBoundary, isStatewide]);
 
   return null;
 }
@@ -143,28 +173,21 @@ const DashboardMap = ({ reports = [], selectedDistrict = 'All Districts' }) => {
     return [OUTER_WORLD_RING, ...districtRings];
   }, [districtRings]);
 
-  // Determine center, zoom, minZoom, and bounds
-  let center = [AP_STATE_CENTER.lat, AP_STATE_CENTER.lng];
-  let zoom = AP_STATE_CENTER.zoom;
-  let minZoom = 7;
-  let maxBounds = [
-    [12.5, 76.5],
-    [19.5, 85.0]
-  ]; // Strict AP borders
+  // Initial center and zoom calculation
+  let initialCenter = [AP_STATE_CENTER.lat, AP_STATE_CENTER.lng];
+  let initialZoom = AP_STATE_CENTER.zoom;
 
-  if (!isStatewide && districtBoundary) {
+  if (!isStatewide && districtBoundary && districtBoundary.bbox) {
     const rawBbox = districtBoundary.bbox;
-    // Add small buffer to bounding box
-    maxBounds = [
-      [rawBbox[0][0] - 0.05, rawBbox[0][1] - 0.05],
-      [rawBbox[1][0] + 0.05, rawBbox[1][1] + 0.05]
-    ];
-    center = [
+    initialCenter = [
       (rawBbox[0][0] + rawBbox[1][0]) / 2,
       (rawBbox[0][1] + rawBbox[1][1]) / 2
     ];
-    zoom = 11;
-    minZoom = 10; // Strictly prevent zooming out past this district
+    const maxSpan = Math.max(
+      rawBbox[1][0] - rawBbox[0][0],
+      rawBbox[1][1] - rawBbox[0][1]
+    );
+    initialZoom = maxSpan > 1.4 ? 8 : maxSpan > 0.8 ? 9 : 10;
   }
 
   // Filter for ACTIVE problems in this particular district only
@@ -180,54 +203,16 @@ const DashboardMap = ({ reports = [], selectedDistrict = 'All Districts' }) => {
 
   return (
     <div className="map-container" style={{ position: 'relative', width: '100%', height: '100%', minHeight: '340px' }}>
-      {/* Top Floating District Status Badge */}
-      <div style={{
-        position: 'absolute',
-        top: 10,
-        right: 10,
-        zIndex: 1000,
-        backgroundColor: 'rgba(255, 255, 255, 0.96)',
-        padding: '0.45rem 0.85rem',
-        borderRadius: '8px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
-        fontSize: '0.8rem',
-        fontWeight: 600,
-        color: '#0f172a',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        border: '1px solid #cbd5e1'
-      }}>
-        <span style={{ color: activeReports.length > 0 ? '#ea580c' : '#16a34a' }}>●</span>
-        <span>{selectedDistrict}</span>
-        <span style={{ color: '#cbd5e1' }}>|</span>
-        <span style={{ color: '#ea580c' }}>{activeReports.length} Active Problems</span>
-        <span style={{
-          backgroundColor: '#f1f5f9',
-          color: '#15803d',
-          padding: '0.15rem 0.45rem',
-          borderRadius: '4px',
-          fontSize: '0.72rem',
-          fontWeight: 700,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.25rem'
-        }}>
-          <Shield size={12} color="#15803d" /> Official Border Locked
-        </span>
-      </div>
-
       <MapContainer 
-        key={`${selectedDistrict}_${center[0].toFixed(2)}_${center[1].toFixed(2)}`}
-        center={center} 
-        zoom={zoom} 
-        minZoom={minZoom}
+        key={selectedDistrict}
+        center={initialCenter} 
+        zoom={initialZoom} 
+        minZoom={5}
         maxZoom={18}
-        maxBounds={maxBounds}
         maxBoundsViscosity={1.0}
         style={{ height: '100%', width: '100%', borderRadius: '10px' }}
       >
-        <MapViewController center={center} zoom={zoom} bounds={maxBounds} minZoom={minZoom} />
+        <MapViewController districtBoundary={districtBoundary} isStatewide={isStatewide} />
         
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
